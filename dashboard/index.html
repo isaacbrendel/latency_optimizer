@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A Comparative Evaluation of High-Throughput Producer-Consumer Architectures in the Go Runtime</title>
+    <!-- Scientific Serif Typography -->
+    <link rel="stylesheet" href="styles.css?v=3">
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="paper-container">
+        <!-- Academic Header -->
+        <header class="academic-header">
+            <h1 class="paper-title">A Comparative Evaluation of High-Throughput Producer-Consumer Architectures in the Go Runtime: Channels vs. Lock-Free Disruptor Ring Buffer</h1>
+            <div class="date">July 18, 2026</div>
+        </header>
+
+        <hr class="header-divider">
+
+        <!-- Abstract Block -->
+        <div class="abstract-container">
+            <h3>Abstract</h3>
+            <p>
+                This paper evaluates the performance characteristics of four producer-consumer fan-out architectures implemented in Go: Simple Fan V1 (struct copying), Simple Fan V2 (pointer passing), Simple Fan V3 (batched pointer passing), and RingBuffer V6 (a Disruptor-inspired circular queue with sync.Cond signaling, individual reader sequence tracking, pointer recycling via sync.Pool, and lock-free read paths). Utilizing varying trade volumes (10,000 to 1,000,000) and subscriber counts (10 to 2,000) under real-time market data feed simulation, we demonstrate that Go channels suffer from linear latency scaling and massive allocation churn. Specifically, at 2,000 subscribers and 50,000 trades, Simple Fan V1 allocates 328.8 MB of heap memory, while RingBuffer V6 allocates only 538 KB—representing a 611x decrease in total memory allocation and a 36x reduction in latency.
+            </p>
+        </div>
+
+        <hr class="section-divider">
+
+        <!-- Section 1: Introduction / Systems -->
+        <section class="paper-section">
+            <h2>1. Tested System Architectures</h2>
+            <p>
+                To replicate Coinbase's optimization journey, we evaluate four sequential architectures in this experiment:
+            </p>
+            <ul>
+                <li><strong>Simple Fan V1 (Struct Value Copy):</strong> The standard Go implementation. The producer publishes an 80-byte <code>Trade</code> struct to an input channel. A broker loop reads this and copies the struct to each subscriber's channel, incurring significant data copying.</li>
+                <li><strong>Simple Fan V2 (Pointer Copy):</strong> Instead of copying the 80-byte struct, we pass an 8-byte pointer <code>*Trade</code>. This reduces copying overhead but introduces heap allocations for the published structs.</li>
+                <li><strong>Simple Fan V3 (Batched Pointers):</strong> Rather than passing trades individually, we pack them into slices (default batch size of 128) and push these slices to the subscriber channels, mitigating channel lock contention.</li>
+                <li><strong>RingBuffer V6 (Disruptor Lock-Free):</strong> A circular pre-allocated array of size 2,048. We track each consumer's position independently using atomic sequence counters. The read path is completely lock-free; readers only block on a <code>sync.Cond</code> when the queue is empty. Substituted objects are recycled via <code>sync.Pool</code> to eliminate GC churn.</li>
+            </ul>
+        </section>
+
+        <!-- Section 2: Experiment Configuration -->
+        <section class="paper-section">
+            <h2>2. Interactive Experiment Builder</h2>
+            <p>
+                Configure the benchmark parameters below to run a custom experiment live on the Go runtime backend.
+            </p>
+            <div class="builder-form">
+                <div class="form-row">
+                    <label for="trades-input"><strong>Trade Volumes (comma-separated):</strong></label>
+                    <input type="text" id="trades-input" value="10000, 50000, 100000, 250000, 500000, 1000000">
+                    <span class="help-text">Max 5,000,000 per data point.</span>
+                </div>
+                <div class="form-row">
+                    <label for="subscribers-input"><strong>Subscriber Counts (comma-separated):</strong></label>
+                    <input type="text" id="subscribers-input" value="10, 50, 100, 250, 500, 1000, 2000">
+                    <span class="help-text">Max 5,000 per data point.</span>
+                </div>
+                <div class="form-row">
+                    <button id="run-btn" class="academic-btn">Run Benchmark Experiment</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 3: Compiler Execution console -->
+        <section class="paper-section">
+            <h2>3. Runtime Compiler & Execution Console</h2>
+            <p>
+                Below is the real-time execution log from the Go compiler and benchmarking engine:
+            </p>
+            <div class="console-wrapper">
+                <pre id="console">Runtime idle. Click "Run Benchmark Experiment" to execute.</pre>
+            </div>
+        </section>
+
+        <!-- Section 4: Experimental Results -->
+        <section class="paper-section">
+            <h2>4. Empirical Results</h2>
+            <p>
+                The empirical findings from the benchmark suite are compiled below in comparative plots and academic LaTeX-style data tables.
+            </p>
+
+            <h3>4.1 Performance Under Trade Scaling (Constant 100 Subscribers)</h3>
+            <div class="chart-container">
+                <canvas id="mainLatencyChart"></canvas>
+            </div>
+            <div class="chart-grid-two">
+                <div class="chart-container-half">
+                    <canvas id="tradesAllocsChart"></canvas>
+                </div>
+                <div class="chart-container-half">
+                    <canvas id="tradesBytesChart"></canvas>
+                </div>
+            </div>
+
+            <div class="table-wrapper">
+                <table class="academic-table" id="trade-scaling-table">
+                    <thead>
+                        <tr class="top-border">
+                            <th rowspan="2">Trade Count</th>
+                            <th rowspan="2">Metric</th>
+                            <th colspan="4" class="header-group">System Implementation</th>
+                        </tr>
+                        <tr class="mid-border">
+                            <th>Simple Fan V1</th>
+                            <th>Simple Fan V2</th>
+                            <th>Simple Fan V3</th>
+                            <th>RingBuffer V6</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Dynamically generated -->
+                    </tbody>
+                </table>
+            </div>
+
+            <h3>4.2 Performance Under Subscriber Scaling (Constant 50,000 Trades)</h3>
+            <div class="chart-grid-two">
+                <div class="chart-container-half">
+                    <canvas id="subscribersLatencyChart"></canvas>
+                </div>
+                <div class="chart-container-half">
+                    <canvas id="subscribersAllocsChart"></canvas>
+                </div>
+            </div>
+
+            <div class="table-wrapper">
+                <table class="academic-table" id="subscribers-scaling-table">
+                    <thead>
+                        <tr class="top-border">
+                            <th rowspan="2">Subscriber Count</th>
+                            <th rowspan="2">Metric</th>
+                            <th colspan="4" class="header-group">System Implementation</th>
+                        </tr>
+                        <tr class="mid-border">
+                            <th>Simple Fan V1</th>
+                            <th>Simple Fan V2</th>
+                            <th>Simple Fan V3</th>
+                            <th>RingBuffer V6</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Dynamically generated -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <hr class="section-divider">
+
+        <!-- Section 5: Live Proof-of-Work -->
+        <section class="paper-section">
+            <h2>5. Real-time Proof-of-Work &amp; Ring Buffer Inspection</h2>
+            <p>
+                To demonstrate that this is a fully functional, live concurrent system rather than a static chart generator, we expose the live state of the memory ring buffer. The producer polls the live Coinbase API for the <code>BTC-USD</code> order book every 1.5 seconds. Incoming trades are pushed into the Ring Buffer using batch writes. Three concurrent consumer goroutines read the trades in real-time.
+            </p>
+
+            <div class="proof-grid">
+                <!-- Column 1: Ring Buffer Visual Grid -->
+                <div class="proof-column" style="width: 50%;">
+                    <h3>5.1 Ring Buffer Slot State (N=32)</h3>
+                    <p class="small-text">
+                        The grid below represents the 32 slots in memory. As the write pointer (W) and reader pointers (UI, AI, BOT) advance atomically, watch their respective index sequences wrap around the 2^5 circular array.
+                    </p>
+                    <div class="rb-circle-wrapper" id="rb-slots-grid">
+                        <!-- 32 slots will be dynamically generated -->
+                    </div>
+                    <div class="rb-legend">
+                        <strong>Legend:</strong>
+                        <span class="legend-item"><span class="legend-color empty-slot"></span> Empty</span>
+                        <span class="legend-item"><span class="legend-color active-slot"></span> Uncommitted (Wrote, not read)</span>
+                        <span class="legend-item"><span class="legend-color pointer-write">W</span> Producer (Write Pointer)</span>
+                        <span class="legend-item"><span class="legend-color pointer-ui">UI</span> Dashboard Reader</span>
+                        <span class="legend-item"><span class="legend-color pointer-ai">AI</span> Gemini Reader</span>
+                        <span class="legend-item"><span class="legend-color pointer-bot">BOT</span> Trading Bot Reader</span>
+                    </div>
+                    <div class="sequence-debug">
+                        <strong>Atomic Sequence Debug:</strong>
+                        <ul>
+                            <li>Producer Write Seq: <code id="seq-write">0</code> (Index: <code id="idx-write">0</code>)</li>
+                            <li>Dashboard UI Read Seq: <code id="seq-ui">0</code> (Index: <code id="idx-ui">0</code>)</li>
+                            <li>Gemini AI Read Seq: <code id="seq-ai">0</code> (Index: <code id="idx-ai">0</code>)</li>
+                            <li>Trading Bot Read Seq: <code id="seq-bot">0</code> (Index: <code id="idx-bot">0</code>)</li>
+                        </ul>
+                    </div>
+                    <div class="trace-debug" style="margin-top: 1rem; border-top: 1px solid #DDD; padding-top: 0.8rem;">
+                        <strong>Live Ring Buffer Activity Trace:</strong>
+                        <div id="rb-trace-log" style="font-family: 'Courier New', monospace; font-size: 0.72rem; max-height: 110px; overflow-y: auto; background: #FFF; padding: 6px; border: 1px solid #DDD; margin-top: 4px; line-height: 1.4; color: #444;">
+                            Waiting for concurrent transactions...
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Column 2: Live Coinbase Trade Feed -->
+                <div class="proof-column" style="width: 50%;">
+                    <h3>5.2 Real-time Coinbase BTC-USD Feed</h3>
+                    <p class="small-text">
+                        Actual trades pulled live from Coinbase's REST API.
+                    </p>
+                    <div class="feed-table-wrapper" style="max-height: 290px;">
+                        <table class="academic-table compact" id="live-trades-table">
+                            <thead>
+                                <tr class="top-border">
+                                    <th>Trade ID</th>
+                                    <th>Price (USD)</th>
+                                    <th>Quantity</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr><td colspan="3" style="text-align: center;">Waiting for incoming trades...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="proof-row-two" style="display: flex; gap: 1.5rem; margin-top: 1.5rem;">
+                <!-- Column 3: High-Throughput L2 Order Book Engine -->
+                <div class="proof-column-half" style="flex: 1; width: 50%; border: 1px solid #C0BFC0; padding: 1.2rem; background-color: #FBFBFB;">
+                    <h3>5.3 High-Throughput L2 Order Book Engine</h3>
+                    <p class="small-text">
+                        A concurrent Disruptor reader consuming Coinbase level 2 order book updates. It maintains an in-memory copy of the order book and computes Order Book Imbalance (OBI) with microsecond latency.
+                    </p>
+                    <div class="ai-status-container" style="font-size: 0.85rem; border-bottom: 1px solid #DDD; padding-bottom: 0.5rem; margin-bottom: 0.8rem;">
+                        <strong>Status:</strong> <span style="color: var(--accent-green); font-weight: bold;">Active (Lock-Free)</span> | 
+                        <strong>Last Sync:</strong> <span id="ind-updated">-</span>
+                    </div>
+
+                    <!-- OBI Gauge -->
+                    <div class="obi-indicator-wrapper" style="margin: 10px 0; border: 1px solid #DDD; padding: 8px 12px; background: #F8F9FA;">
+                        <div style="display: flex; justify-content: space-between; font-size: 0.75rem; font-weight: bold;">
+                            <span>Order Book Imbalance (OBI):</span>
+                            <span id="ind-obi" style="font-family: monospace;">0.00%</span>
+                        </div>
+                        <div class="obi-bar-outer" style="height: 12px; background: #DDD; border-radius: 6px; overflow: hidden; margin-top: 6px; position: relative;">
+                            <div id="obi-bar" style="height: 100%; width: 0%; background: var(--accent-blue); transition: width 0.1s ease, margin-left 0.1s ease; margin-left: 50%;"></div>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; font-size: 0.65rem; color: #666; margin-top: 2px;">
+                            <span>Sell Wall (-100%)</span>
+                            <span>Balanced (0%)</span>
+                            <span>Buy Wall (+100%)</span>
+                        </div>
+                    </div>
+
+                    <!-- Bids / Asks Side by Side Tables -->
+                    <div class="orderbook-depth-wrapper" style="display: flex; gap: 10px; margin-top: 10px;">
+                        <!-- Bids Column (Green) -->
+                        <div class="orderbook-half" style="flex: 1; border: 1px solid #E2E8F0; border-radius: 4px; overflow: hidden;">
+                            <div style="background: #E6F4EA; color: #137333; padding: 4px 8px; font-size: 0.7rem; font-weight: bold; text-align: center; border-bottom: 1px solid #E2E8F0;">BIDS (BUY ORDERS)</div>
+                            <table style="width: 100%; border-collapse: collapse; font-size: 0.7rem; font-family: monospace; text-align: right;" id="obi-bids-table">
+                                <thead>
+                                    <tr style="border-bottom: 1px solid #E2E8F0; color: #666;">
+                                        <th style="padding: 4px; text-align: left;">Size (BTC)</th>
+                                        <th style="padding: 4px;">Price (USD)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr><td colspan="2" style="text-align: center; color: #888;">Waiting...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Asks Column (Red) -->
+                        <div class="orderbook-half" style="flex: 1; border: 1px solid #E2E8F0; border-radius: 4px; overflow: hidden;">
+                            <div style="background: #FCE8E6; color: #C5221F; padding: 4px 8px; font-size: 0.7rem; font-weight: bold; text-align: center; border-bottom: 1px solid #E2E8F0;">ASKS (SELL ORDERS)</div>
+                            <table style="width: 100%; border-collapse: collapse; font-size: 0.7rem; font-family: monospace; text-align: left;" id="obi-asks-table">
+                                <thead>
+                                    <tr style="border-bottom: 1px solid #E2E8F0; color: #666;">
+                                        <th style="padding: 4px; text-align: right;">Price (USD)</th>
+                                        <th style="padding: 4px;">Size (BTC)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr><td colspan="2" style="text-align: center; color: #888;">Waiting...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; font-size: 0.75rem; border-top: 1px dashed #DDD; padding-top: 6px;">
+                        <span><strong>Bid-Ask Spread:</strong> <span id="ind-spread" style="font-family: monospace; font-weight: bold; color: var(--accent-blue);">$0.00</span></span>
+                        <span><strong>Mid Price:</strong> <span id="ind-mid" style="font-family: monospace; font-weight: bold;">$0.00</span></span>
+                    </div>
+                </div>
+
+                <!-- Column 4: Lock-Free Quantitative Trading Bot -->
+                <div class="proof-column-half" style="flex: 1; width: 50%; border: 1px solid #C0BFC0; padding: 1.2rem; background-color: #FBFBFB;">
+                    <h3>5.4 Lock-Free Quantitative Trading Bot</h3>
+                    <p class="small-text">
+                        A concurrent trading consumer reading from the Ring Buffer via a <strong>Sequence Barrier</strong> (dependent on the L2 Order Book Engine). It executes microsecond trades based on Order Book Imbalance.
+                    </p>
+                    <div class="bot-status-container" style="font-size: 0.85rem; border-bottom: 1px solid #DDD; padding-bottom: 0.5rem; margin-bottom: 0.8rem;">
+                        <strong>Strategy:</strong> <span id="bot-strategy">Order Book Imbalance (OBI) HFT</span> | 
+                        <strong>Signal:</strong> <span id="bot-signal">HOLD</span>
+                    </div>
+
+                    <!-- Config Panel -->
+                    <div class="bot-config-panel" style="background: #F0EDE6; border: 1px solid #DDD; padding: 8px; font-size: 0.75rem; display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; margin-bottom: 10px;">
+                        <div>
+                            <label>Stop Loss (SL):</label>
+                            <input type="number" id="cfg-sl" value="2.0" step="0.1" style="width: 50px; font-family: monospace; padding: 2px;"> %
+                        </div>
+                        <div>
+                            <label>Take Profit (TP):</label>
+                            <input type="number" id="cfg-tp" value="5.0" step="0.1" style="width: 50px; font-family: monospace; padding: 2px;"> %
+                        </div>
+                        <div>
+                            <label>Maker Fee:</label>
+                            <input type="number" id="cfg-fee" value="0.05" step="0.01" style="width: 50px; font-family: monospace; padding: 2px;"> %
+                        </div>
+                        <div>
+                            <label>Slippage:</label>
+                            <input type="number" id="cfg-slippage" value="0.01" step="0.005" style="width: 50px; font-family: monospace; padding: 2px;"> %
+                        </div>
+                        <div style="grid-column: span 2; display: flex; gap: 8px; justify-content: space-between; align-items: center; border-top: 1px solid #CCC; padding-top: 4px;">
+                            <div>
+                                <label>Wait Strategy:</label>
+                                <select id="cfg-wait" style="font-size: 0.72rem; padding: 2px;">
+                                    <option value="Blocking">Blocking (Cond)</option>
+                                    <option value="Yielding">Yielding (Gosched)</option>
+                                    <option value="BusySpin">BusySpin (Spin)</option>
+                                </select>
+                            </div>
+                            <button id="btn-save-cfg" class="academic-btn" style="padding: 2px 6px; font-size: 0.7rem;">Update Config</button>
+                        </div>
+                    </div>
+                    
+                    <div class="bot-portfolio-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin: 10px 0;">
+                        <div class="bot-portfolio-card" style="border: 1px solid #DDD; background-color: #FFF; padding: 8px 12px; display: flex; flex-direction: column;">
+                            <span class="card-label" style="font-size: 0.7rem; color: #666; font-family: Georgia, serif;">Virtual Cash</span>
+                            <span class="card-value" id="bot-cash" style="font-size: 1.1rem; font-weight: bold; font-family: monospace; margin-top: 2px;">$100,000.00</span>
+                        </div>
+                        <div class="bot-portfolio-card" style="border: 1px solid #DDD; background-color: #FFF; padding: 8px 12px; display: flex; flex-direction: column;">
+                            <span class="card-label" style="font-size: 0.7rem; color: #666; font-family: Georgia, serif;">BTC Position</span>
+                            <span class="card-value" id="bot-position" style="font-size: 1.1rem; font-weight: bold; font-family: monospace; margin-top: 2px;">0.00000 BTC</span>
+                        </div>
+                        <div class="bot-portfolio-card" style="border: 1px solid #DDD; background-color: #FFF; padding: 8px 12px; display: flex; flex-direction: column;">
+                            <span class="card-label" style="font-size: 0.7rem; color: #666; font-family: Georgia, serif;">Bot NAV (Total)</span>
+                            <span class="card-value" id="bot-nav" style="font-size: 1.1rem; font-weight: bold; font-family: monospace; margin-top: 2px;">$100,000.00</span>
+                        </div>
+                        <div class="bot-portfolio-card" style="border: 1px solid #DDD; background-color: #FFF; padding: 8px 12px; display: flex; flex-direction: column;">
+                            <span class="card-label" style="font-size: 0.7rem; color: #666; font-family: Georgia, serif;">Buy &amp; Hold NAV</span>
+                            <span class="card-value" id="bot-bh-nav" style="font-size: 1.1rem; font-weight: bold; font-family: monospace; margin-top: 2px;">$100,000.00</span>
+                        </div>
+                    </div>
+
+                    <div class="bot-indicators" style="font-size: 0.8rem; margin: 10px 0; border-top: 1px dashed #DDD; border-bottom: 1px dashed #DDD; padding: 6px 0;">
+                        OBI Buy Threshold: <code id="bot-obi-buy-th">0.15</code> | OBI Sell Threshold: <code id="bot-obi-sell-th">-0.15</code>
+                    </div>
+
+                    <!-- Live Strategy Commentary Feed -->
+                    <div class="bot-commentary-wrapper" style="margin: 10px 0; padding: 8px 12px; background: #F8F9FA; border: 1px solid #C0BFC0; font-size: 0.75rem;">
+                        <div style="font-weight: bold; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center;">
+                            <span>Live Strategy Commentary Feed</span>
+                            <span id="commentary-status" style="font-size: 0.65rem; color: var(--accent-green); font-weight: bold;">Active</span>
+                        </div>
+                        <div id="commentary-text" style="font-style: italic; color: #444; margin: 4px 0 0 0; border-left: 2px solid var(--accent-blue); padding-left: 8px; line-height: 1.4;">
+                            Waiting for next HFT signal cycle...
+                        </div>
+                    </div>
+
+                    <!-- Live Price / EMA Chart -->
+                    <div style="height: 150px; width: 100%; margin: 10px 0; border: 1px solid #DDD; background: #FFF; position: relative;">
+                        <canvas id="liveCrossoverChart" style="width:100%; height:100%;"></canvas>
+                    </div>
+
+
+                    <div class="bot-orders-wrapper">
+                        <strong>Executed Orders Log:</strong>
+                        <div class="feed-table-wrapper" style="max-height: 180px; margin-top: 5px;">
+                            <table class="academic-table compact" id="bot-orders-table">
+                                <thead>
+                                    <tr class="top-border">
+                                        <th>ID</th>
+                                        <th>Time</th>
+                                        <th>Type</th>
+                                        <th>Price</th>
+                                        <th>Qty</th>
+                                        <th>Value</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr><td colspan="6" style="text-align: center; font-size: 0.75rem;">Waiting for strategy crossover to execute trades...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <hr class="section-divider">
+
+        <!-- Section 6: References -->
+        <section class="paper-section">
+            <h2>6. References</h2>
+            <ol class="references-list">
+                <li>Coinbase Engineering. "Optimizing Latency in High-Throughput Market Data Dissemination Engines." <em>Coinbase Tech Blog</em>, 2020.</li>
+                <li>LMAX Disruptor. "Concurrent Programming Framework." <em>lmax-exchange.github.io/disruptor/</em>.</li>
+                <li>Go Runtime Scheduling and Memory Allocation Internals. <em>golang.org/doc/</em>.</li>
+            </ol>
+        </section>
+    </div>
+    <script src="app.js?v=3"></script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+# Build binaries
+test_bin
+
+# Local bot state & trades
+bot_state.json
+
+# Environment variables & API keys
+.env

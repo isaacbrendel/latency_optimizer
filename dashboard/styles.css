@@ -1,0 +1,688 @@
+/* Academic CSS Stylesheet - Classic Computer Science Layout */
+
+:root {
+    --paper-bg: #FAF9F6; /* Warm alabaster paper tone */
+    --ink-black: #111111;
+    --ink-gray: #444444;
+    --ink-light-gray: #888888;
+    --accent-red: #8B0000;    /* Dark red for V1 / BUY */
+    --accent-orange: #D2691E; /* Chocolate for V2 */
+    --accent-blue: #000080;   /* Navy for V3 */
+    --accent-green: #006400;  /* Dark green for V6 / SELL */
+    --accent-purple: #7047eb; /* Purple for bot */
+    --console-bg: #1A1A1A;
+    --console-text: #00FF00;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    background-color: #EAE8E3; /* Background behind paper */
+    color: var(--ink-black);
+    font-family: Georgia, "Times New Roman", Times, serif;
+    line-height: 1.5;
+    padding: 2rem 0;
+    font-size: 16px;
+}
+
+/* Paper Sheet Layout */
+.paper-container {
+    max-width: 1040px;
+    margin: 0 auto;
+    background-color: var(--paper-bg);
+    padding: 4rem 5rem;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    border: 1px solid #C0BFC0;
+}
+
+/* Academic Header */
+.academic-header {
+    text-align: center;
+    margin-bottom: 2.5rem;
+}
+
+.paper-title {
+    font-size: 1.8rem;
+    font-weight: normal;
+    font-style: italic;
+    line-height: 1.3;
+    margin-bottom: 1.5rem;
+    color: var(--ink-black);
+}
+
+.authors {
+    font-size: 1.05rem;
+    margin-bottom: 0.5rem;
+}
+
+.affiliation {
+    font-style: italic;
+    color: var(--ink-gray);
+}
+
+.email {
+    font-family: "Courier New", Courier, monospace;
+    font-size: 0.9rem;
+    color: var(--ink-gray);
+}
+
+.date {
+    margin-top: 1rem;
+    font-size: 0.95rem;
+    color: var(--ink-gray);
+}
+
+hr.header-divider {
+    border: none;
+    border-top: 3px double var(--ink-black);
+    margin: 2rem 0;
+}
+
+hr.section-divider {
+    border: none;
+    border-top: 1px solid var(--ink-light-gray);
+    margin: 3rem 0;
+}
+
+/* Abstract Box */
+.abstract-container {
+    margin: 0 auto 3rem auto;
+    width: 90%;
+    text-align: justify;
+    font-size: 0.95rem;
+}
+
+.abstract-container h3 {
+    text-align: center;
+    font-weight: bold;
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+/* Section Headings */
+.paper-section {
+    margin-bottom: 2.5rem;
+}
+
+.paper-section h2 {
+    font-size: 1.3rem;
+    font-weight: bold;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid var(--ink-black);
+    padding-bottom: 0.3rem;
+}
+
+.paper-section h3 {
+    font-size: 1.1rem;
+    font-weight: bold;
+    margin-top: 1.5rem;
+    margin-bottom: 0.8rem;
+}
+
+.paper-section p {
+    margin-bottom: 1rem;
+    text-align: justify;
+}
+
+.paper-section ul, .paper-section ol {
+    margin-left: 2rem;
+    margin-bottom: 1.5rem;
+}
+
+.paper-section li {
+    margin-bottom: 0.5rem;
+    text-align: justify;
+}
+
+/* Form Builder styling */
+.builder-form {
+    background-color: #F0EDE6;
+    border: 1px solid #C0BFC0;
+    padding: 1.5rem;
+    margin: 1.5rem 0;
+}
+
+.form-row {
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.form-row:last-child {
+    margin-bottom: 0;
+}
+
+.form-row label {
+    width: 250px;
+    font-size: 0.95rem;
+}
+
+.form-row input[type="text"] {
+    flex-grow: 1;
+    font-family: "Courier New", Courier, monospace;
+    font-size: 0.9rem;
+    padding: 4px 8px;
+    border: 1px solid #888;
+    background-color: #FFF;
+}
+
+.help-text {
+    font-size: 0.8rem;
+    color: var(--ink-gray);
+    width: 200px;
+}
+
+.academic-btn {
+    font-family: Georgia, serif;
+    background-color: #E1DFDA;
+    color: var(--ink-black);
+    border: 1px solid #888;
+    border-bottom: 2px solid #555;
+    padding: 6px 16px;
+    font-size: 0.95rem;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.academic-btn:hover {
+    background-color: #D3D1CB;
+}
+
+.academic-btn:active {
+    border-bottom-width: 1px;
+    margin-top: 1px;
+}
+
+/* Console Styling */
+.console-wrapper {
+    background-color: var(--console-bg);
+    border: 1px solid #000;
+    padding: 1rem;
+    height: 250px;
+    overflow-y: auto;
+    margin: 1.5rem 0;
+}
+
+#console {
+    font-family: "Courier New", Courier, monospace;
+    font-size: 0.85rem;
+    color: var(--console-text);
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+/* Chart Styles */
+.chart-container {
+    width: 100%;
+    height: 400px;
+    margin: 2rem 0;
+    padding: 1rem;
+    border: 1px solid #C0BFC0;
+    background-color: #FFF;
+}
+
+.chart-grid-two {
+    display: flex;
+    gap: 1.5rem;
+    margin: 2rem 0;
+}
+
+.chart-container-half {
+    flex: 1;
+    width: 50%;
+    height: 300px;
+    padding: 0.8rem;
+    border: 1px solid #C0BFC0;
+    background-color: #FFF;
+}
+
+/* LaTeX Style Booktabs Tables */
+.table-wrapper {
+    overflow-x: auto;
+    margin: 2rem 0;
+}
+
+.academic-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: "Courier New", Courier, monospace;
+    font-size: 0.85rem;
+    margin-bottom: 1.5rem;
+}
+
+.academic-table th, .academic-table td {
+    padding: 6px 12px;
+    text-align: right;
+}
+
+.academic-table th {
+    text-align: center;
+    font-weight: bold;
+}
+
+.academic-table td:first-child, .academic-table th:first-child {
+    text-align: left;
+    font-family: Georgia, serif;
+    font-size: 0.9rem;
+    font-weight: bold;
+}
+
+.academic-table td:nth-child(2) {
+    text-align: left;
+    font-style: italic;
+}
+
+/* Booktabs Borders */
+.top-border {
+    border-top: 2px solid #000;
+}
+
+.mid-border {
+    border-bottom: 1px solid #000;
+}
+
+.academic-table tbody tr:last-child {
+    border-bottom: 2px solid #000;
+}
+
+.header-group {
+    border-bottom: 1px solid #000;
+}
+
+/* Proof of Work Grid */
+.proof-grid {
+    display: flex;
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+    align-items: flex-start;
+}
+
+.proof-column {
+    flex: 1;
+    border: 1px solid #C0BFC0;
+    padding: 1.2rem;
+    background-color: #FBFBFB;
+    min-height: 480px;
+}
+
+.proof-column-half {
+    flex: 1;
+    width: 50%;
+    border: 1px solid #C0BFC0;
+    padding: 1.2rem;
+    background-color: #FBFBFB;
+    min-height: 460px;
+    display: flex;
+    flex-direction: column;
+}
+
+.proof-row-two {
+    display: flex;
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+}
+
+.small-text {
+    font-size: 0.8rem;
+    color: var(--ink-gray);
+    line-height: 1.4;
+    margin-bottom: 1rem;
+}
+
+.small-code {
+    font-family: "Courier New", Courier, monospace;
+    font-size: 0.75rem;
+    white-space: pre-wrap;
+    background-color: #EEE;
+    padding: 8px;
+    border: 1px solid #DDD;
+    overflow-x: auto;
+}
+
+/* Circular Ring Buffer Visualizer */
+.rb-circle-wrapper {
+    position: relative;
+    width: 320px;
+    height: 320px;
+    margin: 1.5rem auto;
+    border: 2px dashed #DDD;
+    border-radius: 50%;
+    background-color: #FFF;
+}
+
+.rb-circle-slot {
+    position: absolute;
+    width: 32px;
+    height: 32px;
+    border: 1px solid #AAA;
+    border-radius: 50%;
+    background-color: #EBEBEB;
+    font-family: "Courier New", Courier, monospace;
+    font-size: 0.68rem;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #444;
+    transition: background-color 0.15s, border-color 0.15s;
+}
+
+.rb-circle-slot.empty-slot {
+    background-color: #EBEBEB;
+    border-color: #AAA;
+}
+
+.rb-circle-slot.active-slot {
+    background-color: #ADD8E6; /* Light Blue for unread/active */
+    color: #000;
+    border-color: #4682B4;
+}
+
+/* Center console inside the circular Ring Buffer */
+.rb-circle-center {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 170px;
+    height: 170px;
+    border-radius: 50%;
+    background-color: #FAF9F6;
+    border: 1px dashed #C0BFC0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 10px;
+    box-shadow: inset 0 2px 5px rgba(0,0,0,0.05);
+}
+
+.center-title {
+    font-size: 0.75rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+    color: #111;
+    border-bottom: 1px solid #111;
+    padding-bottom: 2px;
+}
+
+.center-stat {
+    font-size: 0.72rem;
+    font-family: "Courier New", monospace;
+    color: #333;
+    line-height: 1.4;
+}
+
+.center-stat span {
+    font-weight: bold;
+    color: #111;
+}
+
+/* Badges for pointers */
+.pointer-container {
+    position: absolute;
+    top: -12px; /* Float directly above the slot node */
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    gap: 1.5px;
+}
+
+.ptr-badge {
+    font-size: 0.52rem;
+    padding: 1px 3px;
+    border-radius: 2px;
+    color: white;
+    font-family: monospace;
+    line-height: 1;
+    font-weight: bold;
+    border: 1px solid rgba(255,255,255,0.7);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+}
+
+.ptr-badge.w {
+    background-color: var(--accent-red);
+}
+
+.ptr-badge.ui {
+    background-color: var(--accent-orange);
+}
+
+.ptr-badge.ai {
+    background-color: var(--accent-green);
+}
+
+.ptr-badge.bot {
+    background-color: var(--accent-purple);
+}
+
+/* Legend items */
+.rb-legend {
+    font-size: 0.72rem;
+    margin-bottom: 1rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.legend-color {
+    width: 12px;
+    height: 12px;
+    border: 1px solid #999;
+    display: inline-block;
+    font-size: 0.55rem;
+    text-align: center;
+    line-height: 11px;
+    font-weight: bold;
+    font-family: monospace;
+}
+
+.legend-color.empty-slot {
+    background-color: #EBEBEB;
+}
+
+.legend-color.active-slot {
+    background-color: #ADD8E6;
+}
+
+.legend-color.pointer-write {
+    background-color: var(--accent-red);
+    color: white;
+    border-color: var(--accent-red);
+}
+
+.legend-color.pointer-ui {
+    background-color: var(--accent-orange);
+    color: white;
+    border-color: var(--accent-orange);
+}
+
+.legend-color.pointer-ai {
+    background-color: var(--accent-green);
+    color: white;
+    border-color: var(--accent-green);
+}
+
+.legend-color.pointer-bot {
+    background-color: var(--accent-purple);
+    color: white;
+    border-color: var(--accent-purple);
+}
+
+.sequence-debug {
+    font-size: 0.75rem;
+    border-top: 1px solid #DDD;
+    padding-top: 0.8rem;
+}
+
+.sequence-debug ul {
+    margin-left: 1.2rem;
+    list-style-type: square;
+}
+
+.sequence-debug code {
+    font-family: "Courier New", Courier, monospace;
+    font-weight: bold;
+}
+
+/* Live Feed Table */
+.feed-table-wrapper {
+    max-height: 380px;
+    overflow-y: auto;
+    border: 1px solid #DDD;
+}
+
+.academic-table.compact {
+    font-size: 0.75rem;
+    margin-bottom: 0;
+}
+
+.academic-table.compact th, .academic-table.compact td {
+    padding: 4px 8px;
+}
+
+.academic-table.compact tbody tr {
+    border-bottom: 1px solid #EEE;
+}
+
+.academic-table.compact tbody tr:last-child {
+    border-bottom: none;
+}
+
+/* Gemini Sentiment Analyst Container */
+.ai-status-container {
+    font-size: 0.8rem;
+    border-bottom: 1px solid #DDD;
+    padding-bottom: 0.5rem;
+    margin-bottom: 0.8rem;
+}
+
+#ai-key-status {
+    font-weight: bold;
+}
+
+.ai-key-configured {
+    color: var(--accent-green);
+}
+
+.ai-key-missing {
+    color: var(--accent-orange);
+}
+
+.ai-analysis-container {
+    background-color: #FFF;
+    border: 1px solid #DDD;
+    padding: 1rem;
+    flex-grow: 1;
+}
+
+.ai-header {
+    border-bottom: 1px solid #EEE;
+    padding-bottom: 4px;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+#ai-text {
+    font-style: italic;
+    font-size: 0.85rem;
+    color: #333;
+    line-height: 1.4;
+    margin-bottom: 1rem;
+}
+
+.ai-prompt-wrapper summary {
+    font-size: 0.75rem;
+    cursor: pointer;
+    color: var(--ink-gray);
+    margin-bottom: 4px;
+}
+
+/* Bot Portfolio Styles */
+.bot-portfolio-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin: 10px 0;
+}
+
+.bot-portfolio-card {
+    border: 1px solid #DDD;
+    background-color: #FFF;
+    padding: 8px 12px;
+    display: flex;
+    flex-direction: column;
+}
+
+.card-label {
+    font-size: 0.7rem;
+    color: #666;
+    font-family: Georgia, serif;
+}
+
+.card-value {
+    font-size: 1.1rem;
+    font-weight: bold;
+    font-family: monospace;
+    margin-top: 2px;
+}
+
+.bot-indicators {
+    font-size: 0.8rem;
+    margin: 10px 0;
+    border-top: 1px dashed #DDD;
+    border-bottom: 1px dashed #DDD;
+    padding: 6px 0;
+}
+
+.bot-status-container {
+    font-size: 0.85rem;
+    border-bottom: 1px solid #DDD;
+    padding-bottom: 0.5rem;
+    margin-bottom: 0.8rem;
+}
+
+.bot-orders-wrapper {
+    flex-grow: 1;
+}
+
+/* Footer & References */
+.references-list {
+    font-size: 0.9rem;
+}
+
+.references-list li {
+    margin-bottom: 0.8rem;
+}
+
+/* Responsive elements */
+@media (max-width: 900px) {
+    .paper-container {
+        padding: 2rem 2.5rem;
+    }
+    .chart-grid-two, .proof-grid, .proof-row-two {
+        flex-direction: column;
+    }
+    .chart-container-half, .proof-column, .proof-column-half {
+        width: 100% !important;
+        min-height: auto;
+    }
+}

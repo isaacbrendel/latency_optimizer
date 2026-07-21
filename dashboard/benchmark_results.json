@@ -1,0 +1,62 @@
+{
+  "tradesScaling": {
+    "subscribers": 100,
+    "points": [
+      {
+        "trades": 1000,
+        "results": {
+          "RingBufferV6": {
+            "timeNs": 2538247,
+            "allocs": 533,
+            "bytesAlloc": 189632
+          },
+          "SimpleFanV1": {
+            "timeNs": 19968140,
+            "allocs": 585,
+            "bytesAlloc": 16622080
+          },
+          "SimpleFanV2": {
+            "timeNs": 13896364,
+            "allocs": 552,
+            "bytesAlloc": 1920032
+          },
+          "SimpleFanV3": {
+            "timeNs": 2166141,
+            "allocs": 491,
+            "bytesAlloc": 5006256
+          }
+        }
+      }
+    ]
+  },
+  "subscribersScaling": {
+    "trades": 50000,
+    "points": [
+      {
+        "subscribers": 5,
+        "results": {
+          "RingBufferV6": {
+            "timeNs": 7935952,
+            "allocs": 27,
+            "bytesAlloc": 2090232
+          },
+          "SimpleFanV1": {
+            "timeNs": 173118846,
+            "allocs": 27,
+            "bytesAlloc": 984168
+          },
+          "SimpleFanV2": {
+            "timeNs": 37690307,
+            "allocs": 564,
+            "bytesAlloc": 155656
+          },
+          "SimpleFanV3": {
+            "timeNs": 746034,
+            "allocs": 27,
+            "bytesAlloc": 296024
+          }
+        }
+      }
+    ]
+  }
+}
