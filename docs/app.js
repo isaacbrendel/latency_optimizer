@@ -18,8 +18,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // Load initial benchmark results and render charts/tables
     loadBenchmarkData();
 
-    // Start Live Proof-of-Work Polling Loops (every 1 second)
-    startProofOfWorkPolling();
+    // Check backend connectivity and start loops
+    checkBackendConnectivity().then(() => {
+        startProofOfWorkPolling();
+    });
 
     // Bind Experiment Builder Event Listener
     setupExperimentBuilder();
@@ -418,6 +420,425 @@ function initRingBufferSlots() {
     }
 }
 
+let isStaticDemo = false;
+let demoState = {
+    midPrice: 65000.0,
+    obi: 0.0,
+    spread: 1.5,
+    topBids: [],
+    topAsks: [],
+    trades: [],
+    orders: [],
+    cash: 100000.0,
+    position: 0.0,
+    nav: 100000.0,
+    buyAndHoldNav: 100000.0,
+    initialPrice: 0.0,
+    signal: "HOLD",
+    entryPrice: 0.0,
+    entryTime: 0,
+    orderCounter: 0,
+    writeSeq: 0,
+    quantSeq: 0,
+    botSeq: 0,
+    uiSeq: 0,
+    stopLossPct: 0.02,
+    takeProfitPct: 0.05,
+    takerFeePct: 0.0005,
+    slippagePct: 0.0001
+};
+
+async function checkBackendConnectivity() {
+    try {
+        const response = await fetch('/api/orderbook');
+        if (!response.ok) throw new Error("Not OK");
+    } catch (e) {
+        console.warn("Backend API not found. Activating static client-side HFT simulation.");
+        isStaticDemo = true;
+        initStaticDemoData();
+    }
+}
+
+function initStaticDemoData() {
+    updateDemoOrderBook();
+    demoState.initialPrice = demoState.midPrice;
+    for (let i = 0; i < 10; i++) {
+        demoState.trades.push({
+            ID: 1000 + i,
+            Price: demoState.midPrice + (Math.random() - 0.5) * 5.0,
+            Quantity: Math.random() * 2.0 + 0.1
+        });
+    }
+}
+
+function updateDemoOrderBook() {
+    demoState.midPrice += (Math.random() - 0.5) * 4.0;
+    demoState.topBids = [];
+    demoState.topAsks = [];
+    
+    let currentBid = demoState.midPrice - 0.5 - Math.random() * 0.5;
+    let currentAsk = demoState.midPrice + 0.5 + Math.random() * 0.5;
+    demoState.spread = currentAsk - currentBid;
+    
+    let sumBids = 0;
+    let sumAsks = 0;
+    for (let i = 0; i < 5; i++) {
+        let bidSize = Math.random() * 3.0 + 0.1;
+        let askSize = Math.random() * 3.0 + 0.1;
+        sumBids += bidSize;
+        sumAsks += askSize;
+        
+        demoState.topBids.push({ price: currentBid - i * 0.2, size: bidSize });
+        demoState.topAsks.push({ price: currentAsk + i * 0.2, size: askSize });
+    }
+    
+    demoState.obi = (sumBids - sumAsks) / (sumBids + sumAsks);
+}
+
+function runStaticOrderBookSimulation() {
+    updateDemoOrderBook();
+    const obiPct = (demoState.obi * 100).toFixed(2);
+    const obiTextEl = document.getElementById('ind-obi');
+    if (obiTextEl) obiTextEl.innerText = (demoState.obi >= 0 ? '+' : '') + obiPct + '%';
+    
+    const barEl = document.getElementById('obi-bar');
+    if (barEl) {
+        if (demoState.obi >= 0) {
+            barEl.style.marginLeft = '50%';
+            barEl.style.width = `${demoState.obi * 50}%`;
+            barEl.style.backgroundColor = '#137333';
+        } else {
+            const widthPct = Math.abs(demoState.obi) * 50;
+            barEl.style.marginLeft = `${50 - widthPct}%`;
+            barEl.style.width = `${widthPct}%`;
+            barEl.style.backgroundColor = '#c5221f';
+        }
+    }
+
+    const spreadEl = document.getElementById('ind-spread');
+    if (spreadEl) spreadEl.innerText = '$' + demoState.spread.toFixed(2);
+    const midEl = document.getElementById('ind-mid');
+    if (midEl) midEl.innerText = '$' + demoState.midPrice.toFixed(2);
+    latestPrice = demoState.midPrice;
+    
+    const syncEl = document.getElementById('ind-updated');
+    if (syncEl) syncEl.innerText = new Date().toLocaleTimeString();
+
+    const bidsBody = document.querySelector('#obi-bids-table tbody');
+    if (bidsBody) {
+        bidsBody.innerHTML = '';
+        demoState.topBids.forEach(b => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td style="padding: 2px 4px; color: #555; text-align: left;">${b.size.toFixed(4)}</td>
+                <td style="padding: 2px 4px; color: #137333; font-weight: bold;">${b.price.toFixed(2)}</td>
+            `;
+            bidsBody.appendChild(row);
+        });
+    }
+
+    const asksBody = document.querySelector('#obi-asks-table tbody');
+    if (asksBody) {
+        asksBody.innerHTML = '';
+        demoState.topAsks.forEach(a => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td style="padding: 2px 4px; color: #c5221f; font-weight: bold; text-align: right;">${a.price.toFixed(2)}</td>
+                <td style="padding: 2px 4px; color: #555; text-align: left;">${a.size.toFixed(4)}</td>
+            `;
+            asksBody.appendChild(row);
+        });
+    }
+
+    const nowStr = new Date().toLocaleTimeString();
+    const bestBid = demoState.topBids[0].price;
+    const bestAsk = demoState.topAsks[0].price;
+    chartData.prices.push(demoState.midPrice);
+    chartData.fast.push(bestBid);
+    chartData.slow.push(bestAsk);
+    chartData.labels.push(nowStr);
+    
+    if (chartData.prices.length > 35) {
+        chartData.prices.shift();
+        chartData.fast.shift();
+        chartData.slow.shift();
+        chartData.labels.shift();
+    }
+    
+    if (crossoverChart) {
+        crossoverChart.data.labels = chartData.labels;
+        crossoverChart.data.datasets[0].data = chartData.prices;
+        crossoverChart.data.datasets[1].data = chartData.fast;
+        crossoverChart.data.datasets[2].data = chartData.slow;
+        crossoverChart.update('none');
+    }
+}
+
+function runStaticCoinbaseFeedSimulation() {
+    const lastTrade = demoState.trades[demoState.trades.length - 1];
+    const newTrade = {
+        ID: lastTrade ? lastTrade.ID + 1 : 1000,
+        Price: demoState.midPrice + (Math.random() - 0.5) * 1.5,
+        Quantity: Math.random() * 0.8 + 0.05
+    };
+    demoState.trades.push(newTrade);
+    if (demoState.trades.length > 20) demoState.trades.shift();
+    
+    const tbody = document.querySelector('#live-trades-table tbody');
+    if (!tbody) return;
+
+    tbody.innerHTML = '';
+    const recent = demoState.trades.slice(-10).reverse();
+    recent.forEach(t => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${t.ID}</td>
+            <td>$${t.Price.toFixed(2)}</td>
+            <td>${t.Quantity.toFixed(8)}</td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+function runStaticRingBufferSimulation() {
+    demoState.writeSeq += Math.floor(Math.random() * 50) + 10;
+    demoState.quantSeq += Math.floor(Math.random() * 40) + 5;
+    demoState.botSeq += Math.floor(Math.random() * 30) + 2;
+    demoState.uiSeq += Math.floor(Math.random() * 20) + 1;
+    
+    if (demoState.quantSeq > demoState.writeSeq) demoState.quantSeq = demoState.writeSeq;
+    if (demoState.botSeq > demoState.quantSeq) demoState.botSeq = demoState.quantSeq;
+    if (demoState.uiSeq > demoState.botSeq) demoState.uiSeq = demoState.botSeq;
+    
+    const sw = document.getElementById('seq-write');
+    if (sw) sw.innerText = demoState.writeSeq;
+    const su = document.getElementById('seq-ui');
+    if (su) su.innerText = demoState.uiSeq;
+    const sb = document.getElementById('seq-bot');
+    if (sb) sb.innerText = demoState.botSeq;
+    
+    const cw = document.getElementById('center-w');
+    if (cw) cw.innerText = demoState.writeSeq;
+    const cui = document.getElementById('center-ui');
+    if (cui) cui.innerText = demoState.uiSeq;
+    const cbot = document.getElementById('center-bot');
+    if (cbot) cbot.innerText = demoState.botSeq;
+    
+    for (let i = 0; i < 32; i++) {
+        const slotEl = document.getElementById(`slot-${i}`);
+        if (!slotEl) continue;
+        slotEl.style.borderColor = '#DDD';
+        slotEl.style.backgroundColor = '#FFF';
+        
+        const badgesContainer = slotEl.querySelector('.pointer-container');
+        if (badgesContainer) badgesContainer.innerHTML = '';
+    }
+    
+    addPointerBadge(demoState.writeSeq % 32, 'write', 'W');
+    addPointerBadge(demoState.botSeq % 32, 'bot', 'B');
+    addPointerBadge(demoState.uiSeq % 32, 'ui', 'U');
+}
+
+function runStaticTradingBotSimulation() {
+    demoState.buyAndHoldNav = (demoState.initialPrice > 0) ? (100000.0 * (demoState.midPrice / demoState.initialPrice)) : 100000.0;
+    
+    if (demoState.position > 0) {
+        let pChange = (demoState.midPrice - demoState.entryPrice) / demoState.entryPrice;
+        if (pChange <= -demoState.stopLossPct) {
+            let execPrice = demoState.midPrice * (1.0 - demoState.slippagePct);
+            let soldValue = demoState.position * execPrice;
+            let fee = soldValue * demoState.takerFeePct;
+            demoState.cash += (soldValue - fee);
+            
+            demoState.orderCounter++;
+            demoState.orders.push({
+                id: demoState.orderCounter,
+                timestamp: new Date().toLocaleTimeString(),
+                type: "STOP_LOSS",
+                price: execPrice,
+                quantity: demoState.position,
+                value: soldValue
+            });
+            
+            demoState.position = 0;
+            demoState.entryPrice = 0;
+            demoState.signal = "HOLD";
+        } else if (pChange >= demoState.takeProfitPct) {
+            let execPrice = demoState.midPrice * (1.0 - demoState.slippagePct);
+            let soldValue = demoState.position * execPrice;
+            let fee = soldValue * demoState.takerFeePct;
+            demoState.cash += (soldValue - fee);
+            
+            demoState.orderCounter++;
+            demoState.orders.push({
+                id: demoState.orderCounter,
+                timestamp: new Date().toLocaleTimeString(),
+                type: "TAKE_PROFIT",
+                price: execPrice,
+                quantity: demoState.position,
+                value: soldValue
+            });
+            
+            demoState.position = 0;
+            demoState.entryPrice = 0;
+            demoState.signal = "HOLD";
+        }
+    }
+    
+    let prevSignal = demoState.signal;
+    if (demoState.obi >= 0.15) {
+        demoState.signal = "BUY";
+    } else if (demoState.obi <= -0.15) {
+        demoState.signal = "SELL";
+    } else {
+        demoState.signal = "HOLD";
+    }
+    
+    const nowTime = Date.now() / 1000;
+    
+    if (demoState.signal === "BUY" && prevSignal !== "BUY" && demoState.cash > 10) {
+        let execPrice = demoState.midPrice * (1.0 + demoState.slippagePct);
+        let allocated = demoState.cash * 0.95;
+        let qty = allocated / execPrice;
+        let val = qty * execPrice;
+        let fee = val * demoState.takerFeePct;
+        
+        demoState.cash -= (val + fee);
+        demoState.position += qty;
+        demoState.entryPrice = demoState.midPrice;
+        demoState.entryTime = nowTime;
+        demoState.orderCounter++;
+        
+        demoState.orders.push({
+            id: demoState.orderCounter,
+            timestamp: new Date().toLocaleTimeString(),
+            type: "BUY",
+            price: execPrice,
+            quantity: qty,
+            value: val
+        });
+    }
+    else if (demoState.signal === "SELL" && prevSignal !== "SELL" && demoState.position > 0.0001) {
+        if (nowTime - demoState.entryTime >= 10) {
+            let execPrice = demoState.midPrice * (1.0 - demoState.slippagePct);
+            let soldValue = demoState.position * execPrice;
+            let fee = soldValue * demoState.takerFeePct;
+            demoState.cash += (soldValue - fee);
+            
+            demoState.orderCounter++;
+            demoState.orders.push({
+                id: demoState.orderCounter,
+                timestamp: new Date().toLocaleTimeString(),
+                type: "SELL",
+                price: execPrice,
+                quantity: demoState.position,
+                value: soldValue
+            });
+            
+            demoState.position = 0;
+            demoState.entryPrice = 0;
+        } else {
+            demoState.signal = prevSignal;
+        }
+    }
+    
+    demoState.nav = demoState.cash + (demoState.position * demoState.midPrice);
+    
+    const cashEl = document.getElementById('bot-cash');
+    if (cashEl) cashEl.innerText = '$' + demoState.cash.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    const posEl = document.getElementById('bot-position');
+    if (posEl) posEl.innerText = demoState.position.toFixed(8) + ' BTC';
+    
+    const navEl = document.getElementById('bot-nav');
+    if (navEl) navEl.innerText = '$' + demoState.nav.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    const bhEl = document.getElementById('bot-bh-nav');
+    if (bhEl) bhEl.innerText = '$' + demoState.buyAndHoldNav.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    
+    if (navEl) {
+        if (demoState.nav > demoState.buyAndHoldNav) {
+            navEl.style.color = 'var(--accent-green)';
+        } else if (demoState.nav < demoState.buyAndHoldNav) {
+            navEl.style.color = 'var(--accent-red)';
+        } else {
+            navEl.style.color = '#333';
+        }
+    }
+    
+    const signalEl = document.getElementById('bot-signal');
+    if (signalEl) {
+        signalEl.innerText = demoState.signal;
+        if (demoState.signal === 'BUY') {
+            signalEl.style.color = 'var(--accent-red)';
+            signalEl.style.fontWeight = 'bold';
+        } else if (demoState.signal === 'SELL') {
+            signalEl.style.color = 'var(--accent-green)';
+            signalEl.style.fontWeight = 'bold';
+        } else {
+            signalEl.style.color = '#333';
+            signalEl.style.fontWeight = 'normal';
+        }
+    }
+    
+    const buyThEl = document.getElementById('bot-obi-buy-th');
+    if (buyThEl) buyThEl.innerText = '0.15';
+    const sellThEl = document.getElementById('bot-obi-sell-th');
+    if (sellThEl) sellThEl.innerText = '-0.15';
+
+    const commentaryEl = document.getElementById('commentary-text');
+    if (commentaryEl) {
+        let relativePerf = demoState.nav - demoState.buyAndHoldNav;
+        let perfPct = (((demoState.nav - demoState.buyAndHoldNav) / demoState.buyAndHoldNav) * 100).toFixed(4);
+        let perfText = "";
+        let color = "#333";
+        if (relativePerf > 0) {
+            perfText = `Outperforming Buy & Hold by +$${relativePerf.toFixed(2)} (+${perfPct}%) 🚀`;
+            color = "var(--accent-green)";
+        } else if (relativePerf < 0) {
+            perfText = `Underperforming Buy & Hold by -$${Math.abs(relativePerf).toFixed(2)} (${perfPct}%) ⚠️`;
+            color = "var(--accent-red)";
+        } else {
+            perfText = `Neutral parity with Buy & Hold ($0.00 deviation) ⚖️`;
+        }
+
+        let signalReason = "";
+        if (demoState.signal === 'BUY') {
+            signalReason = "OBI is extremely bullish (>= 0.15) due to massive bid depth. Executing market BUY order to fill BTC position.";
+        } else if (demoState.signal === 'SELL') {
+            signalReason = "OBI is extremely bearish (<= -0.15) due to heavy ask walls. Executed market SELL order to liquidate BTC position.";
+        } else {
+            signalReason = "OBI is in neutral bounds (-0.15 < OBI < 0.15). Standing by to avoid overhead costs.";
+        }
+
+        commentaryEl.innerHTML = `
+            <strong>Performance Analysis:</strong> <span style="color: ${color}; font-weight: bold;">${perfText}</span><br>
+            <strong>HFT Signal Context:</strong> ${signalReason}
+        `;
+    }
+
+    const tbody = document.querySelector('#bot-orders-table tbody');
+    if (tbody) {
+        if (demoState.orders.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; font-size: 0.75rem;">Waiting for strategy crossover to execute trades...</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = '';
+        const recent = demoState.orders.slice(-5).reverse();
+        recent.forEach(o => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${o.id}</td>
+                <td>${o.timestamp}</td>
+                <td style="color: ${o.type.includes('BUY') ? 'var(--accent-red)' : 'var(--accent-green)'}; font-weight: bold;">${o.type}</td>
+                <td>$${o.price.toFixed(2)}</td>
+                <td>${o.quantity.toFixed(8)}</td>
+                <td>$${o.value.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+            `;
+            tbody.appendChild(row);
+        });
+    }
+}
+
 function startProofOfWorkPolling() {
     // Poll the Ring Buffer slot mappings, Coinbase trades, Gemini AI, and the Trading Bot state
     setInterval(pollRingBufferState, 1000);
@@ -427,6 +848,10 @@ function startProofOfWorkPolling() {
 }
 
 async function pollRingBufferState() {
+    if (isStaticDemo) {
+        runStaticRingBufferSimulation();
+        return;
+    }
     try {
         const response = await fetch('/api/ringbuffer');
         if (!response.ok) return;
@@ -521,6 +946,10 @@ function addPointerBadge(idx, type, label) {
 }
 
 async function pollCoinbaseFeed() {
+    if (isStaticDemo) {
+        runStaticCoinbaseFeedSimulation();
+        return;
+    }
     try {
         const response = await fetch('/api/trades');
         if (!response.ok) return;
@@ -553,6 +982,10 @@ async function pollCoinbaseFeed() {
 }
 
 async function pollGeminiSentiment() {
+    if (isStaticDemo) {
+        runStaticOrderBookSimulation();
+        return;
+    }
     try {
         const response = await fetch('/api/orderbook');
         if (!response.ok) return;
@@ -665,6 +1098,10 @@ async function pollGeminiSentiment() {
 
 
 async function pollTradingBotState() {
+    if (isStaticDemo) {
+        runStaticTradingBotSimulation();
+        return;
+    }
     try {
         const response = await fetch('/api/bot');
         if (!response.ok) return;

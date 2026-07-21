@@ -390,8 +390,8 @@ func main() {
 			os.Exit(1)
 		}
 		jsonData, _ := json.MarshalIndent(results, "", "  ")
-		_ = os.WriteFile("dashboard/benchmark_results.json", jsonData, 0644)
-		fmt.Println("Benchmarks complete! Results written to dashboard/benchmark_results.json")
+		_ = os.WriteFile("docs/benchmark_results.json", jsonData, 0644)
+		fmt.Println("Benchmarks complete! Results written to docs/benchmark_results.json")
 		return
 	}
 
@@ -407,7 +407,7 @@ func main() {
 	go runBotConsumer()
 
 	// 4. Setup HTTP Routing
-	fs := http.FileServer(http.Dir("dashboard"))
+	fs := http.FileServer(http.Dir("docs"))
 	http.Handle("/", fs)
 	http.HandleFunc("/api/trades", handleTradesAPI)
 	http.HandleFunc("/api/ringbuffer", handleRingBufferAPI)
@@ -1367,12 +1367,12 @@ func handleRunExperimentAPI(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = os.WriteFile("dashboard/benchmark_results.json", jsonData, 0644)
+	err = os.WriteFile("docs/benchmark_results.json", jsonData, 0644)
 	if err != nil {
 		logger.Write([]byte(fmt.Sprintf("Failed to save benchmark_results.json: %v\n", err)))
 		return
 	}
 
-	logger.Write([]byte("SUCCESS: Results saved to dashboard/benchmark_results.json\n"))
+	logger.Write([]byte("SUCCESS: Results saved to docs/benchmark_results.json\n"))
 	logger.Write([]byte("[DONE]\n"))
 }
