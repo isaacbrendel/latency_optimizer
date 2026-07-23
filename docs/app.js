@@ -754,13 +754,39 @@ function runStaticTradingBotSimulation() {
     const bhEl = document.getElementById('bot-bh-nav');
     if (bhEl) bhEl.innerText = '$' + demoState.buyAndHoldNav.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
     
+    // Sync Top Balance Sheet KPI Cards
+    const topNav = document.getElementById('top-nav-display');
+    if (topNav) topNav.innerText = '$' + demoState.nav.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    const topPos = document.getElementById('top-pos-display');
+    if (topPos) topPos.innerText = demoState.position.toFixed(8) + ' BTC';
+    const topCash = document.getElementById('top-cash-display');
+    if (topCash) topCash.innerText = '$' + demoState.cash.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    const topBH = document.getElementById('top-bh-display');
+    if (topBH) topBH.innerText = '$' + demoState.buyAndHoldNav.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    
+    // Sync Balance Sheet Financial Table
+    const tableCash = document.getElementById('table-cash-val');
+    if (tableCash) tableCash.innerText = '$' + demoState.cash.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    const tableBtc = document.getElementById('table-btc-val');
+    if (tableBtc) tableBtc.innerText = demoState.position.toFixed(8) + ' BTC';
+    const tableNav = document.getElementById('table-nav-val');
+    if (tableNav) tableNav.innerText = '$' + demoState.nav.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    const tableBH = document.getElementById('table-bh-val');
+    if (tableBH) tableBH.innerText = '$' + demoState.buyAndHoldNav.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+
     if (navEl) {
         if (demoState.nav > demoState.buyAndHoldNav) {
             navEl.style.color = 'var(--accent-green)';
+            if (topNav) topNav.style.color = 'var(--accent-green)';
+            if (tableNav) tableNav.style.color = 'var(--accent-green)';
         } else if (demoState.nav < demoState.buyAndHoldNav) {
             navEl.style.color = 'var(--accent-red)';
+            if (topNav) topNav.style.color = 'var(--accent-red)';
+            if (tableNav) tableNav.style.color = 'var(--accent-red)';
         } else {
-            navEl.style.color = '#333';
+            navEl.style.color = 'var(--text-main)';
+            if (topNav) topNav.style.color = 'var(--text-main)';
+            if (tableNav) tableNav.style.color = 'var(--text-main)';
         }
     }
     
@@ -1116,13 +1142,39 @@ async function pollTradingBotState() {
         
         document.getElementById('bot-bh-nav').innerText = '$' + data.buyAndHoldNav.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
         
+        // Sync Top Balance Sheet KPI Cards
+        const topNav = document.getElementById('top-nav-display');
+        if (topNav) topNav.innerText = '$' + data.nav.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        const topPos = document.getElementById('top-pos-display');
+        if (topPos) topPos.innerText = data.position.toFixed(8) + ' BTC';
+        const topCash = document.getElementById('top-cash-display');
+        if (topCash) topCash.innerText = '$' + data.cash.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        const topBH = document.getElementById('top-bh-display');
+        if (topBH) topBH.innerText = '$' + data.buyAndHoldNav.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+
+        // Sync Balance Sheet Financial Table
+        const tableCash = document.getElementById('table-cash-val');
+        if (tableCash) tableCash.innerText = '$' + data.cash.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        const tableBtc = document.getElementById('table-btc-val');
+        if (tableBtc) tableBtc.innerText = data.position.toFixed(8) + ' BTC';
+        const tableNav = document.getElementById('table-nav-val');
+        if (tableNav) tableNav.innerText = '$' + data.nav.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        const tableBH = document.getElementById('table-bh-val');
+        if (tableBH) tableBH.innerText = '$' + data.buyAndHoldNav.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+
         // Color-code Bot NAV based on performance against Buy & Hold baseline
         if (data.nav > data.buyAndHoldNav) {
             navEl.style.color = 'var(--accent-green)';
+            if (topNav) topNav.style.color = 'var(--accent-green)';
+            if (tableNav) tableNav.style.color = 'var(--accent-green)';
         } else if (data.nav < data.buyAndHoldNav) {
             navEl.style.color = 'var(--accent-red)';
+            if (topNav) topNav.style.color = 'var(--accent-red)';
+            if (tableNav) tableNav.style.color = 'var(--accent-red)';
         } else {
-            navEl.style.color = '#333';
+            navEl.style.color = 'var(--text-main)';
+            if (topNav) topNav.style.color = 'var(--text-main)';
+            if (tableNav) tableNav.style.color = 'var(--text-main)';
         }
         
         const signalEl = document.getElementById('bot-signal');
