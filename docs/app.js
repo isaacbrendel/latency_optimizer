@@ -46,7 +46,7 @@ function formatNumber(num) {
 // ----------------------------------------------------
 async function loadBenchmarkData() {
     try {
-        const response = await fetch('benchmark_results.json');
+        const response = await fetch('benchmark_results.json?v=' + new Date().getTime());
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
