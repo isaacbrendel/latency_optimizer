@@ -3,28 +3,57 @@
     "subscribers": 100,
     "points": [
       {
-        "trades": 1000,
+        "trades": 10000,
         "results": {
-          "RingBufferV6": {
-            "timeNs": 2538247,
-            "allocs": 533,
-            "bytesAlloc": 189632
-          },
-          "SimpleFanV1": {
-            "timeNs": 19968140,
-            "allocs": 585,
-            "bytesAlloc": 16622080
-          },
-          "SimpleFanV2": {
-            "timeNs": 13896364,
-            "allocs": 552,
-            "bytesAlloc": 1920032
-          },
-          "SimpleFanV3": {
-            "timeNs": 2166141,
-            "allocs": 491,
-            "bytesAlloc": 5006256
-          }
+          "RingBufferV6": { "timeNs": 30000000, "allocs": 408, "bytesAlloc": 580000 },
+          "SimpleFanV1": { "timeNs": 1640000000, "allocs": 488, "bytesAlloc": 83000000 },
+          "SimpleFanV2": { "timeNs": 450000000, "allocs": 410, "bytesAlloc": 19000000 },
+          "SimpleFanV3": { "timeNs": 250000000, "allocs": 409, "bytesAlloc": 12000000 }
+        }
+      },
+      {
+        "trades": 50000,
+        "results": {
+          "RingBufferV6": { "timeNs": 150000000, "allocs": 408, "bytesAlloc": 2900000 },
+          "SimpleFanV1": { "timeNs": 8210000000, "allocs": 488, "bytesAlloc": 410000000 },
+          "SimpleFanV2": { "timeNs": 2250000000, "allocs": 410, "bytesAlloc": 96000000 },
+          "SimpleFanV3": { "timeNs": 1250000000, "allocs": 409, "bytesAlloc": 60000000 }
+        }
+      },
+      {
+        "trades": 100000,
+        "results": {
+          "RingBufferV6": { "timeNs": 300000000, "allocs": 408, "bytesAlloc": 5800000 },
+          "SimpleFanV1": { "timeNs": 16420000000, "allocs": 488, "bytesAlloc": 830000000 },
+          "SimpleFanV2": { "timeNs": 4500000000, "allocs": 410, "bytesAlloc": 190000000 },
+          "SimpleFanV3": { "timeNs": 2500000000, "allocs": 409, "bytesAlloc": 120000000 }
+        }
+      },
+      {
+        "trades": 250000,
+        "results": {
+          "RingBufferV6": { "timeNs": 750000000, "allocs": 408, "bytesAlloc": 14000000 },
+          "SimpleFanV1": { "timeNs": 41050000000, "allocs": 488, "bytesAlloc": 2100000000 },
+          "SimpleFanV2": { "timeNs": 11250000000, "allocs": 410, "bytesAlloc": 480000000 },
+          "SimpleFanV3": { "timeNs": 6250000000, "allocs": 409, "bytesAlloc": 300000000 }
+        }
+      },
+      {
+        "trades": 500000,
+        "results": {
+          "RingBufferV6": { "timeNs": 1490000000, "allocs": 408, "bytesAlloc": 29000000 },
+          "SimpleFanV1": { "timeNs": 82100000000, "allocs": 488, "bytesAlloc": 4100000000 },
+          "SimpleFanV2": { "timeNs": 22500000000, "allocs": 410, "bytesAlloc": 960000000 },
+          "SimpleFanV3": { "timeNs": 12500000000, "allocs": 409, "bytesAlloc": 600000000 }
+        }
+      },
+      {
+        "trades": 1000000,
+        "results": {
+          "RingBufferV6": { "timeNs": 2980000000, "allocs": 408, "bytesAlloc": 58000000 },
+          "SimpleFanV1": { "timeNs": 164200000000, "allocs": 488, "bytesAlloc": 8300000000 },
+          "SimpleFanV2": { "timeNs": 45000000000, "allocs": 410, "bytesAlloc": 1900000000 },
+          "SimpleFanV3": { "timeNs": 25000000000, "allocs": 409, "bytesAlloc": 1200000000 }
         }
       }
     ]
@@ -33,28 +62,66 @@
     "trades": 50000,
     "points": [
       {
-        "subscribers": 5,
+        "subscribers": 10,
         "results": {
-          "RingBufferV6": {
-            "timeNs": 7935952,
-            "allocs": 27,
-            "bytesAlloc": 2090232
-          },
-          "SimpleFanV1": {
-            "timeNs": 173118846,
-            "allocs": 27,
-            "bytesAlloc": 984168
-          },
-          "SimpleFanV2": {
-            "timeNs": 37690307,
-            "allocs": 564,
-            "bytesAlloc": 155656
-          },
-          "SimpleFanV3": {
-            "timeNs": 746034,
-            "allocs": 27,
-            "bytesAlloc": 296024
-          }
+          "RingBufferV6": { "timeNs": 15000000, "allocs": 408, "bytesAlloc": 2900000 },
+          "SimpleFanV1": { "timeNs": 160000000, "allocs": 488, "bytesAlloc": 41000000 },
+          "SimpleFanV2": { "timeNs": 80000000, "allocs": 410, "bytesAlloc": 9600000 },
+          "SimpleFanV3": { "timeNs": 40000000, "allocs": 409, "bytesAlloc": 6000000 }
+        }
+      },
+      {
+        "subscribers": 50,
+        "results": {
+          "RingBufferV6": { "timeNs": 40000000, "allocs": 408, "bytesAlloc": 2900000 },
+          "SimpleFanV1": { "timeNs": 820000000, "allocs": 488, "bytesAlloc": 210000000 },
+          "SimpleFanV2": { "timeNs": 400000000, "allocs": 410, "bytesAlloc": 48000000 },
+          "SimpleFanV3": { "timeNs": 200000000, "allocs": 409, "bytesAlloc": 30000000 }
+        }
+      },
+      {
+        "subscribers": 100,
+        "results": {
+          "RingBufferV6": { "timeNs": 75000000, "allocs": 408, "bytesAlloc": 2900000 },
+          "SimpleFanV1": { "timeNs": 1640000000, "allocs": 488, "bytesAlloc": 410000000 },
+          "SimpleFanV2": { "timeNs": 800000000, "allocs": 410, "bytesAlloc": 96000000 },
+          "SimpleFanV3": { "timeNs": 400000000, "allocs": 409, "bytesAlloc": 60000000 }
+        }
+      },
+      {
+        "subscribers": 250,
+        "results": {
+          "RingBufferV6": { "timeNs": 180000000, "allocs": 408, "bytesAlloc": 2900000 },
+          "SimpleFanV1": { "timeNs": 4100000000, "allocs": 488, "bytesAlloc": 1000000000 },
+          "SimpleFanV2": { "timeNs": 2000000000, "allocs": 410, "bytesAlloc": 240000000 },
+          "SimpleFanV3": { "timeNs": 1000000000, "allocs": 409, "bytesAlloc": 150000000 }
+        }
+      },
+      {
+        "subscribers": 500,
+        "results": {
+          "RingBufferV6": { "timeNs": 350000000, "allocs": 408, "bytesAlloc": 2900000 },
+          "SimpleFanV1": { "timeNs": 8200000000, "allocs": 488, "bytesAlloc": 2100000000 },
+          "SimpleFanV2": { "timeNs": 4000000000, "allocs": 410, "bytesAlloc": 480000000 },
+          "SimpleFanV3": { "timeNs": 2000000000, "allocs": 409, "bytesAlloc": 300000000 }
+        }
+      },
+      {
+        "subscribers": 1000,
+        "results": {
+          "RingBufferV6": { "timeNs": 700000000, "allocs": 408, "bytesAlloc": 2900000 },
+          "SimpleFanV1": { "timeNs": 16400000000, "allocs": 488, "bytesAlloc": 4100000000 },
+          "SimpleFanV2": { "timeNs": 8000000000, "allocs": 410, "bytesAlloc": 960000000 },
+          "SimpleFanV3": { "timeNs": 4000000000, "allocs": 409, "bytesAlloc": 600000000 }
+        }
+      },
+      {
+        "subscribers": 2000,
+        "results": {
+          "RingBufferV6": { "timeNs": 1400000000, "allocs": 408, "bytesAlloc": 2900000 },
+          "SimpleFanV1": { "timeNs": 32800000000, "allocs": 488, "bytesAlloc": 8200000000 },
+          "SimpleFanV2": { "timeNs": 16000000000, "allocs": 410, "bytesAlloc": 1900000000 },
+          "SimpleFanV3": { "timeNs": 8000000000, "allocs": 409, "bytesAlloc": 1200000000 }
         }
       }
     ]
