@@ -790,6 +790,11 @@ function runStaticTradingBotSimulation() {
         }
     }
     
+    const strategyLabelEl = document.getElementById('bot-strategy');
+    if (strategyLabelEl) {
+        strategyLabelEl.innerText = (demoState.strategy === "LLM") ? "Gemini LLM (AI Decision)" : "Order Book Imbalance (OBI) HFT";
+    }
+
     const signalEl = document.getElementById('bot-signal');
     if (signalEl) {
         signalEl.innerText = demoState.signal;
@@ -817,27 +822,37 @@ function runStaticTradingBotSimulation() {
         let perfText = "";
         let color = "#333";
         if (relativePerf > 0) {
-            perfText = `Outperforming Buy & Hold by +$${relativePerf.toFixed(2)} (+${perfPct}%) 🚀`;
+            perfText = `Outperforming Buy & Hold by +$${relativePerf.toFixed(2)} (+${perfPct}%)`;
             color = "var(--accent-green)";
         } else if (relativePerf < 0) {
-            perfText = `Underperforming Buy & Hold by -$${Math.abs(relativePerf).toFixed(2)} (${perfPct}%) ⚠️`;
+            perfText = `Underperforming Buy & Hold by -$${Math.abs(relativePerf).toFixed(2)} (${perfPct}%)`;
             color = "var(--accent-red)";
         } else {
-            perfText = `Neutral parity with Buy & Hold ($0.00 deviation) ⚖️`;
+            perfText = `Neutral parity with Buy & Hold ($0.00 deviation)`;
         }
 
         let signalReason = "";
-        if (demoState.signal === 'BUY') {
-            signalReason = "OBI is extremely bullish (>= 0.15) due to massive bid depth. Executing market BUY order to fill BTC position.";
-        } else if (demoState.signal === 'SELL') {
-            signalReason = "OBI is extremely bearish (<= -0.15) due to heavy ask walls. Executed market SELL order to liquidate BTC position.";
+        if (demoState.strategy === "LLM") {
+            if (demoState.signal === 'BUY') {
+                signalReason = `Gemini 2.5 Flash: Bullish divergence confirmed. OBI (+${(demoState.obi * 100).toFixed(2)}%) shows aggressive bid wall aggregation. Spread ($${demoState.spread.toFixed(2)}) tightening. Target long entry.`;
+            } else if (demoState.signal === 'SELL') {
+                signalReason = `Gemini 2.5 Flash: Bearish exhaust pattern. Heavy ask wall building (OBI = ${(demoState.obi * 100).toFixed(2)}%). Liquidity support fading. Executing market exit to preserve capital.`;
+            } else {
+                signalReason = `Gemini 2.5 Flash: Market consolidation. OBI (${(demoState.obi * 100).toFixed(2)}%) inside neutral bounds. Standing by in Cash to avoid high-frequency fee drag.`;
+            }
         } else {
-            signalReason = "OBI is in neutral bounds (-0.15 < OBI < 0.15). Standing by to avoid overhead costs.";
+            if (demoState.signal === 'BUY') {
+                signalReason = "OBI is extremely bullish (>= 0.15) due to massive bid depth. Executing market BUY order to fill BTC position.";
+            } else if (demoState.signal === 'SELL') {
+                signalReason = "OBI is extremely bearish (<= -0.15) due to heavy ask walls. Executed market SELL order to liquidate BTC position.";
+            } else {
+                signalReason = "OBI is in neutral bounds (-0.15 < OBI < 0.15). Standing by to avoid overhead costs.";
+            }
         }
 
         commentaryEl.innerHTML = `
             <strong>Performance Analysis:</strong> <span style="color: ${color}; font-weight: bold;">${perfText}</span><br>
-            <strong>HFT Signal Context:</strong> ${signalReason}
+            <strong>Signal Context:</strong> ${signalReason}
         `;
     }
 
@@ -1177,6 +1192,15 @@ async function pollTradingBotState() {
             if (tableNav) tableNav.style.color = 'var(--text-main)';
         }
         
+        const strategyLabelEl = document.getElementById('bot-strategy');
+        if (strategyLabelEl) {
+            strategyLabelEl.innerText = (data.strategy === "LLM") ? "Gemini LLM (AI Decision)" : "Order Book Imbalance (OBI) HFT";
+        }
+        const strategySelectEl = document.getElementById('cfg-strategy');
+        if (strategySelectEl && document.activeElement !== strategySelectEl) {
+            strategySelectEl.value = data.strategy || "OBI";
+        }
+
         const signalEl = document.getElementById('bot-signal');
         signalEl.innerText = data.signal;
         if (data.signal === 'BUY') {
@@ -1201,27 +1225,20 @@ async function pollTradingBotState() {
             let perfText = "";
             let color = "#333";
             if (relativePerf > 0) {
-                perfText = `Outperforming Buy & Hold by +$${relativePerf.toFixed(2)} (+${perfPct}%) 🚀`;
+                perfText = `Outperforming Buy & Hold by +$${relativePerf.toFixed(2)} (+${perfPct}%)`;
                 color = "var(--accent-green)";
             } else if (relativePerf < 0) {
-                perfText = `Underperforming Buy & Hold by -$${Math.abs(relativePerf).toFixed(2)} (${perfPct}%) ⚠️`;
+                perfText = `Underperforming Buy & Hold by -$${Math.abs(relativePerf).toFixed(2)} (${perfPct}%)`;
                 color = "var(--accent-red)";
             } else {
-                perfText = `Neutral parity with Buy & Hold ($0.00 deviation) ⚖️`;
+                perfText = `Neutral parity with Buy & Hold ($0.00 deviation)`;
             }
 
-            let signalReason = "";
-            if (data.signal === 'BUY') {
-                signalReason = "OBI is extremely bullish (>= 0.75) due to massive bid depth. Executing market BUY order to fill BTC position.";
-            } else if (data.signal === 'SELL') {
-                signalReason = "OBI is extremely bearish (<= -0.75) due to heavy ask walls. Executed market SELL order to liquidate BTC position.";
-            } else {
-                signalReason = "OBI is in neutral bounds (-0.75 < OBI < 0.75). Standing by to avoid overhead costs.";
-            }
+            let signalReason = data.commentary || "Waiting for signal cycle...";
 
             commentaryEl.innerHTML = `
                 <strong>Performance Analysis:</strong> <span style="color: ${color}; font-weight: bold;">${perfText}</span><br>
-                <strong>HFT Signal Context:</strong> ${signalReason}
+                <strong>Signal Context:</strong> ${signalReason}
             `;
         }
 
@@ -1318,8 +1335,17 @@ function setupBotControls() {
                 const tp = parseFloat(document.getElementById('cfg-tp').value) / 100.0;
                 const fee = parseFloat(document.getElementById('cfg-fee').value) / 100.0;
                 const slippage = parseFloat(document.getElementById('cfg-slippage').value) / 100.0;
+                const strategyStr = document.getElementById('cfg-strategy').value;
                 const waitStr = document.getElementById('cfg-wait').value;
                 
+                if (isStaticDemo) {
+                    demoState.stopLossPct = sl;
+                    demoState.takeProfitPct = tp;
+                    demoState.takerFeePct = fee;
+                    demoState.slippagePct = slippage;
+                    demoState.strategy = strategyStr;
+                }
+
                 const response = await fetch('/api/bot/config', {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
@@ -1328,7 +1354,8 @@ function setupBotControls() {
 						takeProfitPct: tp,
 						takerFeePct: fee,
 						slippagePct: slippage,
-						waitStrategy: waitStr
+						waitStrategy: waitStr,
+                        strategy: strategyStr
 					})
 				});
                 if (response.ok) {
