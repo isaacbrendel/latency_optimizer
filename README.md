@@ -1,4 +1,4 @@
-# ⚡ Low-Latency Market Data Engine & Lock-Free Ring Buffer
+# Low-Latency Market Data Engine & Lock-Free Ring Buffer
 
 > **Replicating Coinbase's High-Throughput Producer-Consumer Architecture in Go**  
 > Inspired by Coinbase Engineering's article: [*Optimizing Producer-Consumer Architecture for Market Data at Coinbase*](https://www.coinbase.com/blog/Optimizing-Producer-Consumer-Architecture-for-Market-Data-at-Coinbase)
@@ -9,7 +9,7 @@
 
 ---
 
-## 📌 Executive Overview
+## Executive Overview
 
 In high-frequency cryptocurrency exchanges, market data engines must disseminate order book updates and trade execution ticks to thousands of internal services (risk engines, order book aggregators, trading bots, UI websockets) with sub-microsecond latency. 
 
@@ -22,7 +22,7 @@ This project implements a **Lock-Free Disruptor Ring Buffer V6 in Go**, replicat
 
 ---
 
-## 📐 Architecture Diagram
+## Architecture Diagram
 
 ```
                  +-------------------------------------------------+
@@ -46,7 +46,7 @@ This project implements a **Lock-Free Disruptor Ring Buffer V6 in Go**, replicat
 
 ---
 
-## 🚀 Key Engineering Solutions Implemented
+## Key Engineering Solutions Implemented
 
 ### 1. Lock-Free Circular Indexing (`seq & mask`)
 Instead of channel locks or mutexes, slots are accessed in a pre-allocated array of size $2^N$ using fast bitwise masking:
@@ -78,7 +78,7 @@ Higher-level consumers (such as the HFT Trading Bot) depend on pre-computed quan
 
 ---
 
-## 📊 Empirical Benchmarks
+## Empirical Benchmarks
 
 Run benchmarks locally using Go standard testing tools:
 ```bash
@@ -98,10 +98,10 @@ go test -bench=. -benchmem
 
 ---
 
-## 🌐 Live Web Terminal & Balance Sheet Dashboard
+## Live Web Terminal & Balance Sheet Dashboard
 
 A live, high-frequency dashboard is published on GitHub Pages:  
-👉 **[https://isaacbrendel.github.io/latency_optimizer/](https://isaacbrendel.github.io/latency_optimizer/)**
+Visit the live workstation here: **[https://isaacbrendel.github.io/latency_optimizer/](https://isaacbrendel.github.io/latency_optimizer/)**
 
 ### Dashboard Features:
 - **Financial Balance Sheet Statement**: Portfolio Net Asset Value (NAV), Cash Reserves, Crypto Position, and Real-time PnL vs Buy & Hold.
@@ -111,7 +111,7 @@ A live, high-frequency dashboard is published on GitHub Pages:
 
 ---
 
-## 🛠️ Quickstart & Local Setup
+## Quickstart & Local Setup
 
 ### 1. Build and Run Server Locally
 ```bash
@@ -134,7 +134,7 @@ go test -v -bench=. -benchmem
 
 ---
 
-## 📚 References & Acknowledgments
+## References & Acknowledgments
 
 1. Coinbase Engineering Tech Blog: *"Optimizing Producer-Consumer Architecture for Market Data at Coinbase"* ([Link](https://www.coinbase.com/blog/Optimizing-Producer-Consumer-Architecture-for-Market-Data-at-Coinbase))
 2. LMAX Disruptor High-Throughput Concurrent Framework ([lmax-exchange.github.io/disruptor](https://lmax-exchange.github.io/disruptor/))
@@ -142,5 +142,6 @@ go test -v -bench=. -benchmem
 
 ---
 
-## 📄 License
+## License
 MIT License. Free for research, commercial, and educational use.
+# latency_optimizer
