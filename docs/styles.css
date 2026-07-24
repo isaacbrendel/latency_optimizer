@@ -41,6 +41,7 @@ body {
     line-height: 1.6;
     padding: 3rem 1.5rem;
     font-size: 14px;
+    overflow-x: hidden;
 }
 
 /* Paper Container (Represents an academic sheet of paper) */
@@ -317,10 +318,11 @@ body {
 /* Table Wrapper for Scroll / Auto-clipping */
 .feed-table-wrapper {
     overflow-y: auto;
-    overflow-x: hidden;
+    overflow-x: auto;
     display: block;
     width: 100%;
     margin-top: 5px;
+    -webkit-overflow-scrolling: touch;
 }
 
 /* Circular ring buffer slots */
@@ -558,7 +560,7 @@ body {
     }
 
     /* Tables scroll safety */
-    .table-wrapper, .financial-statement-container {
+    .table-wrapper, .financial-statement-container, .feed-table-wrapper {
         overflow-x: auto;
         display: block;
         width: 100%;
