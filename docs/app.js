@@ -352,8 +352,44 @@ function setupExperimentBuilder() {
         const tradesVal = document.getElementById('trades-input').value.trim();
         const subsVal = document.getElementById('subscribers-input').value.trim();
 
-        consoleEl.textContent = '>> Initiating Server-Sent Events (SSE) connection to compiler backend...\n';
         runBtn.disabled = true;
+
+        if (isStaticDemo) {
+            consoleEl.textContent = '>> Initiating client-side Go runtime simulation (offline static mode)...\n';
+            runBtn.innerText = 'Compiling Go Test Harness...';
+
+            setTimeout(() => {
+                consoleEl.textContent += '[Go Compiler] Compiling low-overhead benchmark harness (simplefan.go, ringbuffer.go, latency_test.go)...\n';
+                consoleEl.scrollTop = consoleEl.scrollHeight;
+            }, 800);
+
+            setTimeout(() => {
+                consoleEl.textContent += '[Go Compiler] Compilation successful. Spawning benchmark processes...\n';
+                consoleEl.textContent += `[Runner] Running benchmark suite over configurations: trades = [${tradesVal}], subscribers = [${subsVal}]\n`;
+                consoleEl.scrollTop = consoleEl.scrollHeight;
+                runBtn.innerText = 'Executing Benchmarks...';
+            }, 1800);
+
+            setTimeout(() => {
+                consoleEl.textContent += 'BenchmarkSimpleFanV1-8     100    164200000 ns/op    8317661 B/op    488 allocs/op\n';
+                consoleEl.textContent += 'BenchmarkSimpleFanV2-8     200     45000000 ns/op    1920032 B/op    410 allocs/op\n';
+                consoleEl.textContent += 'BenchmarkSimpleFanV3-8     500     25000000 ns/op    1200000 B/op    409 allocs/op\n';
+                consoleEl.textContent += 'BenchmarkRingBufferV6-8   1000      2980000 ns/op      57676 B/op    408 allocs/op\n';
+                consoleEl.scrollTop = consoleEl.scrollHeight;
+            }, 3200);
+
+            setTimeout(() => {
+                consoleEl.textContent += '\n>> Compilation & execution finished successfully. Reloading empirical charts...\n';
+                consoleEl.scrollTop = consoleEl.scrollHeight;
+                runBtn.disabled = false;
+                runBtn.innerText = 'Run Benchmark Experiment';
+                loadBenchmarkData();
+            }, 4200);
+
+            return;
+        }
+
+        consoleEl.textContent = '>> Initiating Server-Sent Events (SSE) connection to compiler backend...\n';
         runBtn.innerText = 'Executing Go Compiler...';
 
         const eventSource = new EventSource(`/api/run-experiment?trades=${encodeURIComponent(tradesVal)}&subscribers=${encodeURIComponent(subsVal)}`);
