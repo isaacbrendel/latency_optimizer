@@ -311,27 +311,35 @@
             </p>
 
             <div class="proof-grid" style="display: flex; gap: 2rem;">
-                <!-- Column 1: Slot Diagram -->
+                <!-- Column 1: Linear Pipeline Diagram -->
                 <div style="flex: 1; width: 50%;">
-                    <h3>3.1 Circular Queue Memory Slots</h3>
-                    <div class="rb-circle-wrapper" id="rb-slots-grid">
-                        <!-- slots generated dynamically -->
+                    <h3>3.1 Linear Queue Pipeline Buffer</h3>
+                    <p class="small-text">
+                        A horizontal view of the circular queue slots. The Producer writes data (marked red), and the Consumer processes events (marked blue) sequentially.
+                    </p>
+                    
+                    <div id="rb-linear-wrapper" style="border: var(--border-thin); padding: 15px; margin: 15px 0; background: var(--bg-panel); font-family: var(--font-mono); font-size: 0.75rem;">
+                        <div id="linear-slots-container" style="display: grid; grid-template-columns: repeat(16, 1fr); gap: 4px; margin-bottom: 12px;">
+                            <!-- Generated dynamically -->
+                        </div>
+                        <div id="linear-pipeline-status" style="border-top: var(--border-dashed); padding-top: 8px; font-size: 0.72rem; line-height: 1.5;">
+                            Producer Write Sequence (W): <span id="linear-w-seq" style="font-weight: bold; color: var(--accent-red);">0</span><br>
+                            Consumer Read Sequence (R): <span id="linear-c-seq" style="font-weight: bold; color: var(--accent-blue);">0</span><br>
+                            Consumer Buffer Lag: <span id="linear-lag" style="font-weight: bold; color: var(--accent-amber);">0 slots</span>
+                        </div>
                     </div>
+
                     <div class="rb-legend">
-                        <span class="legend-item"><span class="legend-color empty-slot"></span> Slot</span>
-                        <span class="legend-item"><span class="legend-color active-slot"></span> Written</span>
-                        <span class="legend-item"><span class="legend-color pointer-write">W</span> Write</span>
-                        <span class="legend-item"><span class="legend-color pointer-ui">UI</span> Dashboard</span>
-                        <span class="legend-item"><span class="legend-color pointer-ai">AI</span> Gemini</span>
-                        <span class="legend-item"><span class="legend-color pointer-bot">BOT</span> Bot</span>
+                        <span class="legend-item"><span class="legend-color" style="background: #ffffff; border: var(--border-thin);"></span> Empty Slot</span>
+                        <span class="legend-item"><span class="legend-color" style="background: #fff4ea; border: var(--border-thin);"></span> Written Slot</span>
+                        <span class="legend-item"><span class="legend-color" style="background: var(--accent-red); border: var(--border-thin);"></span> Producer (W)</span>
+                        <span class="legend-item"><span class="legend-color" style="background: var(--accent-blue); border: var(--border-thin);"></span> Consumer (R)</span>
                     </div>
                     <div class="sequence-debug">
-                        <strong>Sequence Indices:</strong>
+                        <strong>Sequence Pointers:</strong>
                         <ul style="margin: 0; padding: 0; list-style: none;">
-                            <li>Write Pointer: <code id="seq-write">0</code> (Index: <code id="idx-write">0</code>)</li>
-                            <li>UI Reader: <code id="seq-ui">0</code> (Index: <code id="idx-ui">0</code>)</li>
-                            <li>AI Reader: <code id="seq-ai">0</code> (Index: <code id="idx-ai">0</code>)</li>
-                            <li>BOT Reader: <code id="seq-bot">0</code> (Index: <code id="idx-bot">0</code>)</li>
+                            <li>Producer Write Index: <code id="seq-write">0</code></li>
+                            <li>Consumer Read Index: <code id="seq-bot">0</code></li>
                         </ul>
                     </div>
                 </div>

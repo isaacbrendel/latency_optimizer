@@ -385,38 +385,22 @@ function setupExperimentBuilder() {
 // 4. Live Proof-of-Work Visualization (Disruptor Operations)
 // ----------------------------------------------------
 function initRingBufferSlots() {
-    const wrapper = document.getElementById('rb-slots-grid');
-    wrapper.innerHTML = '';
+    const container = document.getElementById('linear-slots-container');
+    if (!container) return;
+    container.innerHTML = '';
     
-    // Add central dashboard card inside the circular ring buffer
-    const centerEl = document.createElement('div');
-    centerEl.className = 'rb-circle-center';
-    centerEl.innerHTML = `
-        <div class="center-title">Sequence State</div>
-        <div class="center-stat">W: <span id="center-w">0</span></div>
-        <div class="center-stat">UI: <span id="center-ui">0</span></div>
-        <div class="center-stat">AI: <span id="center-ai">0</span></div>
-        <div class="center-stat">BOT: <span id="center-bot">0</span></div>
-    `;
-    wrapper.appendChild(centerEl);
-
-    const radius = 122; // radius in px (for 320x320 wrapper)
-    const centerOffset = 160; // half of 320px
-
-    for (let i = 0; i < 32; i++) {
+    for (let i = 0; i < 16; i++) {
         const slot = document.createElement('div');
-        slot.className = 'rb-circle-slot empty-slot';
-        slot.id = `slot-${i}`;
-        
-        // Calculate X, Y positions on the circle perimeter
-        const angle = (i / 32) * 2 * Math.PI - Math.PI / 2; // start at top (12 o'clock)
-        const x = centerOffset + radius * Math.cos(angle) - 16; // subtract half slot width (16px)
-        const y = centerOffset + radius * Math.sin(angle) - 16; // subtract half slot height (16px)
-        
-        slot.style.left = `${x}px`;
-        slot.style.top = `${y}px`;
-        slot.innerHTML = `<span>${i}</span>`;
-        wrapper.appendChild(slot);
+        slot.id = `linear-slot-${i}`;
+        slot.style.border = '1px solid #000';
+        slot.style.padding = '8px 2px';
+        slot.style.textAlign = 'center';
+        slot.style.fontFamily = 'var(--font-mono)';
+        slot.style.fontSize = '0.75rem';
+        slot.style.background = '#ffffff';
+        slot.style.position = 'relative';
+        slot.innerHTML = `<div style="font-weight: bold;">${i}</div><div class="slot-badge" style="font-size: 0.6rem; margin-top: 4px; height: 12px;"></div>`;
+        container.appendChild(slot);
     }
 }
 
@@ -601,42 +585,60 @@ function runStaticCoinbaseFeedSimulation() {
 }
 
 function runStaticRingBufferSimulation() {
-    demoState.writeSeq += Math.floor(Math.random() * 50) + 10;
-    demoState.quantSeq += Math.floor(Math.random() * 40) + 5;
-    demoState.botSeq += Math.floor(Math.random() * 30) + 2;
-    demoState.uiSeq += Math.floor(Math.random() * 20) + 1;
+    demoState.writeSeq += Math.floor(Math.random() * 3) + 1;
+    demoState.botSeq += Math.floor(Math.random() * 2) + 1;
     
-    if (demoState.quantSeq > demoState.writeSeq) demoState.quantSeq = demoState.writeSeq;
-    if (demoState.botSeq > demoState.quantSeq) demoState.botSeq = demoState.quantSeq;
-    if (demoState.uiSeq > demoState.botSeq) demoState.uiSeq = demoState.botSeq;
+    if (demoState.botSeq > demoState.writeSeq) demoState.botSeq = demoState.writeSeq;
     
     const sw = document.getElementById('seq-write');
     if (sw) sw.innerText = demoState.writeSeq;
-    const su = document.getElementById('seq-ui');
-    if (su) su.innerText = demoState.uiSeq;
     const sb = document.getElementById('seq-bot');
     if (sb) sb.innerText = demoState.botSeq;
     
-    const cw = document.getElementById('center-w');
-    if (cw) cw.innerText = demoState.writeSeq;
-    const cui = document.getElementById('center-ui');
-    if (cui) cui.innerText = demoState.uiSeq;
-    const cbot = document.getElementById('center-bot');
-    if (cbot) cbot.innerText = demoState.botSeq;
+    const linW = document.getElementById('linear-w-seq');
+    if (linW) linW.innerText = demoState.writeSeq;
+    const linC = document.getElementById('linear-c-seq');
+    if (linC) linC.innerText = demoState.botSeq;
     
-    for (let i = 0; i < 32; i++) {
-        const slotEl = document.getElementById(`slot-${i}`);
+    const lag = demoState.writeSeq - demoState.botSeq;
+    const linLag = document.getElementById('linear-lag');
+    if (linLag) linLag.innerText = `${lag} slot` + (lag === 1 ? '' : 's');
+    
+    const wIdx = demoState.writeSeq % 16;
+    const rIdx = demoState.botSeq % 16;
+    
+    for (let i = 0; i < 16; i++) {
+        const slotEl = document.getElementById(`linear-slot-${i}`);
         if (!slotEl) continue;
-        slotEl.style.borderColor = '#DDD';
-        slotEl.style.backgroundColor = '#FFF';
         
-        const badgesContainer = slotEl.querySelector('.pointer-container');
-        if (badgesContainer) badgesContainer.innerHTML = '';
+        const badgeEl = slotEl.querySelector('.slot-badge');
+        
+        if (i === wIdx) {
+            slotEl.style.background = 'var(--accent-red)';
+            slotEl.style.color = '#ffffff';
+            if (badgeEl) badgeEl.innerText = 'P';
+        } else if (i === rIdx) {
+            slotEl.style.background = 'var(--accent-blue)';
+            slotEl.style.color = '#ffffff';
+            if (badgeEl) badgeEl.innerText = 'C';
+        } else {
+            let isUnread = false;
+            if (wIdx > rIdx) {
+                isUnread = (i > rIdx && i < wIdx);
+            } else if (wIdx < rIdx) {
+                isUnread = (i > rIdx || i < wIdx);
+            }
+            
+            if (isUnread) {
+                slotEl.style.background = '#fff4ea';
+                slotEl.style.color = 'var(--text-main)';
+            } else {
+                slotEl.style.background = '#ffffff';
+                slotEl.style.color = 'var(--text-dim)';
+            }
+            if (badgeEl) badgeEl.innerText = '';
+        }
     }
-    
-    addPointerBadge(demoState.writeSeq % 32, 'write', 'W');
-    addPointerBadge(demoState.botSeq % 32, 'bot', 'B');
-    addPointerBadge(demoState.uiSeq % 32, 'ui', 'U');
 }
 
 function runStaticTradingBotSimulation() {
@@ -900,52 +902,53 @@ async function pollRingBufferState() {
 
         // Update Atomic Sequences in UI Debug panel
         document.getElementById('seq-write').innerText = data.writeSeq;
-        document.getElementById('idx-write').innerText = data.writeIndex;
-        document.getElementById('seq-ui').innerText = data.uiReadSeq;
-        document.getElementById('idx-ui').innerText = data.uiReadIndex;
-        document.getElementById('seq-ai').innerText = data.aiReadSeq;
-        document.getElementById('idx-ai').innerText = data.aiReadIndex;
         document.getElementById('seq-bot').innerText = data.botReadSeq;
-        document.getElementById('idx-bot').innerText = data.botReadIndex;
 
-        // Update Central circular stats
-        document.getElementById('center-w').innerText = data.writeSeq;
-        document.getElementById('center-ui').innerText = data.uiReadSeq;
-        document.getElementById('center-ai').innerText = data.aiReadSeq;
-        document.getElementById('center-bot').innerText = data.botReadSeq;
+        // Update linear pipeline status
+        document.getElementById('linear-w-seq').innerText = data.writeSeq;
+        document.getElementById('linear-c-seq').innerText = data.botReadSeq;
+        
+        const lag = data.writeSeq - data.botReadSeq;
+        document.getElementById('linear-lag').innerText = `${lag} slot` + (lag === 1 ? '' : 's');
 
-        // Reset visual slots classes & populate tooltips with real-time trade data
-        for (let i = 0; i < 32; i++) {
-            const slotEl = document.getElementById(`slot-${i}`);
+        // Map sequences to circular 16-slot index
+        const wIdx = data.writeSeq % 16;
+        const rIdx = data.botReadSeq % 16;
+
+        for (let i = 0; i < 16; i++) {
+            const slotEl = document.getElementById(`linear-slot-${i}`);
             if (!slotEl) continue;
-            
-            const slotInfo = data.slots[i];
-            
-            if (slotInfo.state === 'uncommitted') {
-                slotEl.className = 'rb-circle-slot active-slot';
-            } else {
-                slotEl.className = 'rb-circle-slot empty-slot';
-            }
 
-            // Bind tooltip detailed text
-            if (slotInfo.tradeId > 0) {
-                slotEl.title = `Slot ${i} [${slotInfo.state.toUpperCase()}]\nTrade ID: ${slotInfo.tradeId}\nPrice: $${slotInfo.price.toFixed(2)}\nQty: ${slotInfo.quantity.toFixed(8)} BTC\nTime: ${slotInfo.timestamp}`;
+            const badgeEl = slotEl.querySelector('.slot-badge');
+            
+            // Determine state colors
+            if (i === wIdx) {
+                slotEl.style.background = 'var(--accent-red)';
+                slotEl.style.color = '#ffffff';
+                if (badgeEl) badgeEl.innerText = 'P';
+            } else if (i === rIdx) {
+                slotEl.style.background = 'var(--accent-blue)';
+                slotEl.style.color = '#ffffff';
+                if (badgeEl) badgeEl.innerText = 'C';
             } else {
-                slotEl.title = `Slot ${i} [EMPTY]\nNo trades written to this memory index yet.`;
-            }
-
-            // Clear previous pointer containers
-            const ptrContainer = slotEl.querySelector('.pointer-container');
-            if (ptrContainer) {
-                ptrContainer.innerHTML = '';
+                // Check if slot has written unread data
+                let isUnread = false;
+                if (wIdx > rIdx) {
+                    isUnread = (i > rIdx && i < wIdx);
+                } else if (wIdx < rIdx) {
+                    isUnread = (i > rIdx || i < wIdx);
+                }
+                
+                if (isUnread) {
+                    slotEl.style.background = '#fff4ea';
+                    slotEl.style.color = 'var(--text-main)';
+                } else {
+                    slotEl.style.background = '#ffffff';
+                    slotEl.style.color = 'var(--text-dim)';
+                }
+                if (badgeEl) badgeEl.innerText = '';
             }
         }
-
-        // Add sequence pointer badges to visual slots
-        addPointerBadge(data.writeIndex, 'w', 'W');
-        addPointerBadge(data.uiReadIndex, 'ui', 'UI');
-        addPointerBadge(data.aiReadIndex, 'ai', 'AI');
-        addPointerBadge(data.botReadIndex, 'bot', 'BOT');
 
         // Update Live Event Trace Log
         const logEl = document.getElementById('rb-trace-log');
@@ -967,23 +970,6 @@ async function pollRingBufferState() {
     } catch (err) {
         console.error('Error polling ring buffer:', err);
     }
-}
-
-function addPointerBadge(idx, type, label) {
-    const slotEl = document.getElementById(`slot-${idx}`);
-    if (!slotEl) return;
-
-    let ptrContainer = slotEl.querySelector('.pointer-container');
-    if (!ptrContainer) {
-        ptrContainer = document.createElement('div');
-        ptrContainer.className = 'pointer-container';
-        slotEl.appendChild(ptrContainer);
-    }
-
-    const badge = document.createElement('span');
-    badge.className = `ptr-badge ${type}`;
-    badge.innerText = label;
-    ptrContainer.appendChild(badge);
 }
 
 async function pollCoinbaseFeed() {
