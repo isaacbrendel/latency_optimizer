@@ -468,3 +468,112 @@ body {
     margin-top: 10px;
     font-size: 0.82rem;
 }
+
+/* ----------------------------------------------------
+   5. Mobile Responsive Media Queries
+   ---------------------------------------------------- */
+@media (max-width: 768px) {
+    body {
+        padding: 1rem 0.5rem;
+        font-size: 13px;
+    }
+
+    .paper-container {
+        padding: 1.5rem 1rem;
+        border: none; /* Strip border on small screens to save space */
+    }
+
+    .paper-title-large {
+        font-size: 1.35rem;
+        line-height: 1.3;
+    }
+
+    .authors-block {
+        font-size: 0.85rem;
+    }
+
+    .author-email {
+        font-size: 0.72rem;
+        line-height: 1.5;
+    }
+
+    .abstract-container {
+        margin-bottom: 1.5rem;
+    }
+
+    .abstract-container p {
+        text-indent: 0;
+        text-align: left;
+    }
+
+    /* Stack summary cards vertically or in 2 columns */
+    .balance-sheet-summary {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0;
+        border-bottom: none;
+    }
+
+    .metric-card {
+        border-right: var(--border-thin);
+        border-bottom: var(--border-thin);
+        padding: 8px 4px;
+    }
+
+    .metric-card:nth-child(2n) {
+        border-right: none;
+    }
+
+    .metric-card:nth-child(3), .metric-card:nth-child(4) {
+        border-bottom: var(--border-thin);
+    }
+
+    .metric-card .card-value {
+        font-size: 1rem;
+    }
+
+    /* Force columns to stack */
+    .proof-row-two, .chart-grid-two, .proof-grid {
+        flex-direction: column !important;
+        gap: 1.5rem !important;
+    }
+
+    .proof-column-half, .proof-column, .chart-container-half {
+        width: 100% !important;
+        flex: none !important;
+    }
+
+    /* Forms */
+    .form-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+    }
+
+    .form-row label {
+        width: 100%;
+    }
+
+    .form-row input[type="text"] {
+        width: 100%;
+    }
+
+    /* Tables scroll safety */
+    .table-wrapper, .financial-statement-container {
+        overflow-x: auto;
+        display: block;
+        width: 100%;
+        -webkit-overflow-scrolling: touch;
+        margin: 1rem 0;
+        border-bottom: var(--border-thin);
+    }
+
+    .financial-statement-table, .academic-table {
+        min-width: 600px; /* Keep tables wide enough to read and scrollable */
+    }
+
+    /* Linear Queue Visualizer responsive wrap */
+    #linear-slots-container {
+        grid-template-columns: repeat(8, 1fr) !important; /* Wrap into 2 rows of 8 on mobile */
+        gap: 3px !important;
+    }
+}
