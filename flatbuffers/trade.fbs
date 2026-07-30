@@ -1,0 +1,21 @@
+// FlatBuffers Schema for Zero-Copy High-Frequency Market Data Messaging
+// Inspired by Chris (Coinbase Engineering) recommendation for zero-parsing-overhead binary transport.
+
+namespace marketdata;
+
+enum OrderSide : byte { Buy = 0, Sell = 1 }
+enum Venue : byte { Coinbase = 0, Robinhood = 1, Binance = 2 }
+
+table CompactTradeFB {
+  id: long;
+  price: long;
+  quantity: long;
+  timestamp: long;
+  sequence: ushort;
+  symbol_id: ubyte;
+  side: OrderSide;
+  flags: ubyte;
+  venue_id: Venue;
+}
+
+root_type CompactTradeFB;

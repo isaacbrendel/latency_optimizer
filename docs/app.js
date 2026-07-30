@@ -41,12 +41,22 @@ function formatNumber(num) {
     return num;
 }
 
+function getApiUrl(endpoint) {
+    if (!endpoint) return '';
+    if (endpoint.startsWith('http://') || endpoint.startsWith('https://')) return endpoint;
+    const origin = window.location.origin;
+    if (origin === 'null' || origin.startsWith('file:')) {
+        return 'http://localhost:8080' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint);
+    }
+    return endpoint.startsWith('/') ? endpoint : '/' + endpoint;
+}
+
 // ----------------------------------------------------
 // 1. Benchmark Data Loading & Rendering
 // ----------------------------------------------------
 async function loadBenchmarkData() {
     try {
-        const response = await fetch('benchmark_results.json?v=' + new Date().getTime());
+        const response = await fetch(getApiUrl('/benchmark_results.json?v=' + new Date().getTime()));
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -56,7 +66,10 @@ async function loadBenchmarkData() {
         renderAcademicTables(data);
     } catch (err) {
         console.error('Error loading benchmark data:', err);
-        document.getElementById('console').textContent += `\n[WARN] Failed to load initial benchmark_results.json. Run an experiment to generate it.\n`;
+        const consoleEl = document.getElementById('console');
+        if (consoleEl) {
+            consoleEl.textContent += `\n[WARN] Failed to load benchmark_results.json: ${err.message}\n`;
+        }
     }
 }
 
@@ -64,105 +77,130 @@ async function loadBenchmarkData() {
 function renderAcademicTables(data) {
     // 1. Trade Scaling Table
     const tradeTableBody = document.querySelector('#trade-scaling-table tbody');
-    tradeTableBody.innerHTML = '';
-    
-    data.tradesScaling.points.forEach(p => {
-        const t1 = p.results.SimpleFanV1;
-        const t2 = p.results.SimpleFanV2;
-        const t3 = p.results.SimpleFanV3;
-        const t4 = p.results.RingBufferV6;
+    if (tradeTableBody && data.tradesScaling) {
+        tradeTableBody.innerHTML = '';
+        data.tradesScaling.points.forEach(p => {
+            const t1 = p.results.SimpleFanV1 || { timeNs: 0, allocs: 0, bytesAlloc: 0 };
+            const t2 = p.results.SimpleFanV2 || { timeNs: 0, allocs: 0, bytesAlloc: 0 };
+            const t3 = p.results.SimpleFanV3 || { timeNs: 0, allocs: 0, bytesAlloc: 0 };
+            const t4 = p.results.RingBufferV6 || { timeNs: 0, allocs: 0, bytesAlloc: 0 };
+            const t5 = p.results.RingBufferEviction || { timeNs: 0, allocs: 0, bytesAlloc: 0 };
+            const t6 = p.results.FlatBuffersZeroCopy || { timeNs: 0, allocs: 0, bytesAlloc: 0 };
 
-        const rowTime = document.createElement('tr');
-        rowTime.innerHTML = `
-            <td rowspan="3">${formatNumber(p.trades)}</td>
-            <td>Time (ms)</td>
-            <td>${(t1.timeNs / 1e6).toFixed(2)}</td>
-            <td>${(t2.timeNs / 1e6).toFixed(2)}</td>
-            <td>${(t3.timeNs / 1e6).toFixed(2)}</td>
-            <td>${(t4.timeNs / 1e6).toFixed(2)}</td>
-        `;
-        
-        const rowAllocs = document.createElement('tr');
-        rowAllocs.innerHTML = `
-            <td>Allocs/Op</td>
-            <td>${t1.allocs}</td>
-            <td>${t2.allocs}</td>
-            <td>${t3.allocs}</td>
-            <td>${t4.allocs}</td>
-        `;
+            const rowTime = document.createElement('tr');
+            rowTime.innerHTML = `
+                <td rowspan="3">${formatNumber(p.trades)}</td>
+                <td>Time (ms)</td>
+                <td>${(t1.timeNs / 1e6).toFixed(2)}</td>
+                <td>${(t2.timeNs / 1e6).toFixed(2)}</td>
+                <td>${(t3.timeNs / 1e6).toFixed(2)}</td>
+                <td>${(t4.timeNs / 1e6).toFixed(2)}</td>
+                <td style="font-weight: bold; color: #b25900;">${(t5.timeNs / 1e6).toFixed(2)}</td>
+                <td style="font-weight: bold; color: #005f00;">${(t6.timeNs / 1e6).toFixed(2)}</td>
+            `;
+            
+            const rowAllocs = document.createElement('tr');
+            rowAllocs.innerHTML = `
+                <td>Allocs/Op</td>
+                <td>${t1.allocs}</td>
+                <td>${t2.allocs}</td>
+                <td>${t3.allocs}</td>
+                <td>${t4.allocs}</td>
+                <td style="font-weight: bold; color: #b25900;">${t5.allocs}</td>
+                <td style="font-weight: bold; color: #005f00;">${t6.allocs}</td>
+            `;
 
-        const rowBytes = document.createElement('tr');
-        rowBytes.innerHTML = `
-            <td>Memory (KB)</td>
-            <td>${(t1.bytesAlloc / 1024).toFixed(0)}</td>
-            <td>${(t2.bytesAlloc / 1024).toFixed(0)}</td>
-            <td>${(t3.bytesAlloc / 1024).toFixed(0)}</td>
-            <td>${(t4.bytesAlloc / 1024).toFixed(0)}</td>
-        `;
+            const rowBytes = document.createElement('tr');
+            rowBytes.innerHTML = `
+                <td>Memory (KB)</td>
+                <td>${(t1.bytesAlloc / 1024).toFixed(0)}</td>
+                <td>${(t2.bytesAlloc / 1024).toFixed(0)}</td>
+                <td>${(t3.bytesAlloc / 1024).toFixed(0)}</td>
+                <td>${(t4.bytesAlloc / 1024).toFixed(0)}</td>
+                <td style="font-weight: bold; color: #b25900;">${(t5.bytesAlloc / 1024).toFixed(0)}</td>
+                <td style="font-weight: bold; color: #005f00;">${(t6.bytesAlloc / 1024).toFixed(0)}</td>
+            `;
 
-        tradeTableBody.appendChild(rowTime);
-        tradeTableBody.appendChild(rowAllocs);
-        tradeTableBody.appendChild(rowBytes);
-    });
+            tradeTableBody.appendChild(rowTime);
+            tradeTableBody.appendChild(rowAllocs);
+            tradeTableBody.appendChild(rowBytes);
+        });
+    }
 
     // 2. Subscriber Scaling Table
     const subTableBody = document.querySelector('#subscribers-scaling-table tbody');
-    subTableBody.innerHTML = '';
+    if (subTableBody && data.subscribersScaling) {
+        subTableBody.innerHTML = '';
+        data.subscribersScaling.points.forEach(p => {
+            const t1 = p.results.SimpleFanV1 || { timeNs: 0, allocs: 0, bytesAlloc: 0 };
+            const t2 = p.results.SimpleFanV2 || { timeNs: 0, allocs: 0, bytesAlloc: 0 };
+            const t3 = p.results.SimpleFanV3 || { timeNs: 0, allocs: 0, bytesAlloc: 0 };
+            const t4 = p.results.RingBufferV6 || { timeNs: 0, allocs: 0, bytesAlloc: 0 };
+            const t5 = p.results.RingBufferEviction || { timeNs: 0, allocs: 0, bytesAlloc: 0 };
+            const t6 = p.results.FlatBuffersZeroCopy || { timeNs: 0, allocs: 0, bytesAlloc: 0 };
 
-    data.subscribersScaling.points.forEach(p => {
-        const t1 = p.results.SimpleFanV1;
-        const t2 = p.results.SimpleFanV2;
-        const t3 = p.results.SimpleFanV3;
-        const t4 = p.results.RingBufferV6;
+            const rowTime = document.createElement('tr');
+            rowTime.innerHTML = `
+                <td rowspan="3">${p.subscribers}</td>
+                <td>Time (ms)</td>
+                <td>${(t1.timeNs / 1e6).toFixed(2)}</td>
+                <td>${(t2.timeNs / 1e6).toFixed(2)}</td>
+                <td>${(t3.timeNs / 1e6).toFixed(2)}</td>
+                <td>${(t4.timeNs / 1e6).toFixed(2)}</td>
+                <td style="font-weight: bold; color: #b25900;">${(t5.timeNs / 1e6).toFixed(2)}</td>
+                <td style="font-weight: bold; color: #005f00;">${(t6.timeNs / 1e6).toFixed(2)}</td>
+            `;
 
-        const rowTime = document.createElement('tr');
-        rowTime.innerHTML = `
-            <td rowspan="3">${p.subscribers}</td>
-            <td>Time (ms)</td>
-            <td>${(t1.timeNs / 1e6).toFixed(2)}</td>
-            <td>${(t2.timeNs / 1e6).toFixed(2)}</td>
-            <td>${(t3.timeNs / 1e6).toFixed(2)}</td>
-            <td>${(t4.timeNs / 1e6).toFixed(2)}</td>
-        `;
+            const rowAllocs = document.createElement('tr');
+            rowAllocs.innerHTML = `
+                <td>Allocs/Op</td>
+                <td>${t1.allocs}</td>
+                <td>${t2.allocs}</td>
+                <td>${t3.allocs}</td>
+                <td>${t4.allocs}</td>
+                <td style="font-weight: bold; color: #b25900;">${t5.allocs}</td>
+                <td style="font-weight: bold; color: #005f00;">${t6.allocs}</td>
+            `;
 
-        const rowAllocs = document.createElement('tr');
-        rowAllocs.innerHTML = `
-            <td>Allocs/Op</td>
-            <td>${t1.allocs}</td>
-            <td>${t2.allocs}</td>
-            <td>${t3.allocs}</td>
-            <td>${t4.allocs}</td>
-        `;
+            const rowBytes = document.createElement('tr');
+            rowBytes.innerHTML = `
+                <td>Memory (KB)</td>
+                <td>${(t1.bytesAlloc / 1024).toFixed(0)}</td>
+                <td>${(t2.bytesAlloc / 1024).toFixed(0)}</td>
+                <td>${(t3.bytesAlloc / 1024).toFixed(0)}</td>
+                <td>${(t4.bytesAlloc / 1024).toFixed(0)}</td>
+                <td style="font-weight: bold; color: #b25900;">${(t5.bytesAlloc / 1024).toFixed(0)}</td>
+                <td style="font-weight: bold; color: #005f00;">${(t6.bytesAlloc / 1024).toFixed(0)}</td>
+            `;
 
-        const rowBytes = document.createElement('tr');
-        rowBytes.innerHTML = `
-            <td>Memory (KB)</td>
-            <td>${(t1.bytesAlloc / 1024).toFixed(0)}</td>
-            <td>${(t2.bytesAlloc / 1024).toFixed(0)}</td>
-            <td>${(t3.bytesAlloc / 1024).toFixed(0)}</td>
-            <td>${(t4.bytesAlloc / 1024).toFixed(0)}</td>
-        `;
-
-        subTableBody.appendChild(rowTime);
-        subTableBody.appendChild(rowAllocs);
-        subTableBody.appendChild(rowBytes);
-    });
+            subTableBody.appendChild(rowTime);
+            subTableBody.appendChild(rowAllocs);
+            subTableBody.appendChild(rowBytes);
+        });
+    }
 }
 
 // ----------------------------------------------------
 // 2. Chart Rendering (Scientific / Academic Style)
 // ----------------------------------------------------
 function renderAcademicCharts(data) {
+    if (!data || !data.tradesScaling || !data.subscribersScaling) return;
+
     // Clear old chart instances to avoid overlap on redraw
     Object.keys(chartInstances).forEach(key => {
-        chartInstances[key].destroy();
+        if (chartInstances[key] && typeof chartInstances[key].destroy === 'function') {
+            chartInstances[key].destroy();
+        }
     });
+    chartInstances = {};
 
     const colors = {
-        sfV1: '#b22222',   // Firebrick Red
-        sfV2: '#d2691e',   // Chocolate Orange
-        sfV3: '#4682b4',   // Steel Blue
-        rbV6: '#2e8b57'    // Sea Green
+        sfV1: '#b22222',        // Firebrick Red
+        sfV2: '#d2691e',        // Chocolate Orange
+        sfV3: '#4682b4',        // Steel Blue
+        rbV6: '#2e8b57',        // Sea Green
+        rbEviction: '#b25900',  // Dark Amber
+        flatBuffers: '#005f00'  // Dark Green
     };
 
     const academicOptions = {
@@ -210,135 +248,157 @@ function renderAcademicCharts(data) {
     const tradesLabels = data.tradesScaling.points.map(p => formatNumber(p.trades));
     const subLabels = data.subscribersScaling.points.map(p => p.subscribers);
 
+    const getRes = (point, key) => (point.results && point.results[key]) ? point.results[key] : { timeNs: 0, allocs: 0, bytesAlloc: 0 };
+
     // Chart 1: Latency Scaling (Overview)
-    const ctx1 = document.getElementById('mainLatencyChart').getContext('2d');
-    chartInstances.latency = new Chart(ctx1, {
-        type: 'line',
-        data: {
-            labels: tradesLabels,
-            datasets: [
-                { label: 'SimpleFan V1 (Struct Copy)', data: data.tradesScaling.points.map(p => p.results.SimpleFanV1.timeNs / 1e6), borderColor: colors.sfV1, backgroundColor: 'transparent', borderWidth: 1.5, pointStyle: 'circle', pointRadius: 4 },
-                { label: 'SimpleFan V2 (Pointer Copy)', data: data.tradesScaling.points.map(p => p.results.SimpleFanV2.timeNs / 1e6), borderColor: colors.sfV2, backgroundColor: 'transparent', borderWidth: 1.5, pointStyle: 'triangle', pointRadius: 4 },
-                { label: 'SimpleFan V3 (Batched Ptr)', data: data.tradesScaling.points.map(p => p.results.SimpleFanV3.timeNs / 1e6), borderColor: colors.sfV3, backgroundColor: 'transparent', borderWidth: 1.5, pointStyle: 'rect', pointRadius: 4 },
-                { label: 'RingBuffer V6 (Disruptor)', data: data.tradesScaling.points.map(p => p.results.RingBufferV6.timeNs / 1e6), borderColor: colors.rbV6, backgroundColor: 'transparent', borderWidth: 2.0, pointStyle: 'rectRot', pointRadius: 5 }
-            ]
-        },
-        options: {
-            ...academicOptions,
-            plugins: {
-                ...academicOptions.plugins,
-                title: { display: true, text: 'Execution Time vs. Trade Volume (100 Subscribers)', font: { family: 'Georgia', size: 13, weight: 'bold' } }
+    const ctx1 = document.getElementById('mainLatencyChart');
+    if (ctx1) {
+        chartInstances.latency = new Chart(ctx1.getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: tradesLabels,
+                datasets: [
+                    { label: 'SimpleFan V1', data: data.tradesScaling.points.map(p => getRes(p, 'SimpleFanV1').timeNs / 1e6), borderColor: colors.sfV1, backgroundColor: 'transparent', borderWidth: 1.5, pointRadius: 4 },
+                    { label: 'SimpleFan V2', data: data.tradesScaling.points.map(p => getRes(p, 'SimpleFanV2').timeNs / 1e6), borderColor: colors.sfV2, backgroundColor: 'transparent', borderWidth: 1.5, pointRadius: 4 },
+                    { label: 'SimpleFan V3', data: data.tradesScaling.points.map(p => getRes(p, 'SimpleFanV3').timeNs / 1e6), borderColor: colors.sfV3, backgroundColor: 'transparent', borderWidth: 1.5, pointRadius: 4 },
+                    { label: 'RingBuffer V6', data: data.tradesScaling.points.map(p => getRes(p, 'RingBufferV6').timeNs / 1e6), borderColor: colors.rbV6, backgroundColor: 'transparent', borderWidth: 2.0, pointRadius: 5 },
+                    { label: 'RB Eviction Mode', data: data.tradesScaling.points.map(p => getRes(p, 'RingBufferEviction').timeNs / 1e6), borderColor: colors.rbEviction, backgroundColor: 'transparent', borderWidth: 2.0, pointRadius: 5 },
+                    { label: 'FlatBuffers Zero-Copy', data: data.tradesScaling.points.map(p => getRes(p, 'FlatBuffersZeroCopy').timeNs / 1e6), borderColor: colors.flatBuffers, backgroundColor: 'transparent', borderWidth: 2.0, pointRadius: 5 }
+                ]
             },
-            scales: {
-                ...academicOptions.scales,
-                y: { ...academicOptions.scales.y, title: { display: true, text: 'Time (ms)', font: { family: 'Georgia' } } }
+            options: {
+                ...academicOptions,
+                plugins: {
+                    ...academicOptions.plugins,
+                    title: { display: true, text: 'Execution Time vs. Trade Volume (100 Subscribers)', font: { family: 'Georgia', size: 13, weight: 'bold' } }
+                },
+                scales: {
+                    ...academicOptions.scales,
+                    y: { ...academicOptions.scales.y, title: { display: true, text: 'Time (ms)', font: { family: 'Georgia' } } }
+                }
             }
-        }
-    });
+        });
+    }
 
     // Chart 2: Allocations Scaling (Trades)
-    const ctx2 = document.getElementById('tradesAllocsChart').getContext('2d');
-    chartInstances.tradeAllocs = new Chart(ctx2, {
-        type: 'line',
-        data: {
-            labels: tradesLabels,
-            datasets: [
-                { label: 'SimpleFan V1', data: data.tradesScaling.points.map(p => p.results.SimpleFanV1.allocs), borderColor: colors.sfV1, backgroundColor: 'transparent', borderWidth: 1.2, pointRadius: 3 },
-                { label: 'SimpleFan V2', data: data.tradesScaling.points.map(p => p.results.SimpleFanV2.allocs), borderColor: colors.sfV2, backgroundColor: 'transparent', borderWidth: 1.2, pointRadius: 3 },
-                { label: 'SimpleFan V3', data: data.tradesScaling.points.map(p => p.results.SimpleFanV3.allocs), borderColor: colors.sfV3, backgroundColor: 'transparent', borderWidth: 1.2, pointRadius: 3 },
-                { label: 'RingBuffer V6', data: data.tradesScaling.points.map(p => p.results.RingBufferV6.allocs), borderColor: colors.rbV6, backgroundColor: 'transparent', borderWidth: 1.8, pointRadius: 4 }
-            ]
-        },
-        options: {
-            ...academicOptions,
-            plugins: {
-                ...academicOptions.plugins,
-                title: { display: true, text: 'Total Mallocs vs. Trade Volume', font: { family: 'Georgia', size: 12 } }
+    const ctx2 = document.getElementById('tradesAllocsChart');
+    if (ctx2) {
+        chartInstances.tradeAllocs = new Chart(ctx2.getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: tradesLabels,
+                datasets: [
+                    { label: 'SimpleFan V1', data: data.tradesScaling.points.map(p => getRes(p, 'SimpleFanV1').allocs), borderColor: colors.sfV1, backgroundColor: 'transparent', borderWidth: 1.2, pointRadius: 3 },
+                    { label: 'SimpleFan V2', data: data.tradesScaling.points.map(p => getRes(p, 'SimpleFanV2').allocs), borderColor: colors.sfV2, backgroundColor: 'transparent', borderWidth: 1.2, pointRadius: 3 },
+                    { label: 'SimpleFan V3', data: data.tradesScaling.points.map(p => getRes(p, 'SimpleFanV3').allocs), borderColor: colors.sfV3, backgroundColor: 'transparent', borderWidth: 1.2, pointRadius: 3 },
+                    { label: 'RingBuffer V6', data: data.tradesScaling.points.map(p => getRes(p, 'RingBufferV6').allocs), borderColor: colors.rbV6, backgroundColor: 'transparent', borderWidth: 1.8, pointRadius: 4 },
+                    { label: 'RB Eviction', data: data.tradesScaling.points.map(p => getRes(p, 'RingBufferEviction').allocs), borderColor: colors.rbEviction, backgroundColor: 'transparent', borderWidth: 1.8, pointRadius: 4 },
+                    { label: 'FlatBuffers', data: data.tradesScaling.points.map(p => getRes(p, 'FlatBuffersZeroCopy').allocs), borderColor: colors.flatBuffers, backgroundColor: 'transparent', borderWidth: 1.8, pointRadius: 4 }
+                ]
             },
-            scales: {
-                ...academicOptions.scales,
-                y: { ...academicOptions.scales.y, title: { display: true, text: 'Mallocs/Op Count', font: { family: 'Georgia' } } }
+            options: {
+                ...academicOptions,
+                plugins: {
+                    ...academicOptions.plugins,
+                    title: { display: true, text: 'Total Mallocs vs. Trade Volume', font: { family: 'Georgia', size: 12 } }
+                },
+                scales: {
+                    ...academicOptions.scales,
+                    y: { ...academicOptions.scales.y, title: { display: true, text: 'Mallocs/Op Count', font: { family: 'Georgia' } } }
+                }
             }
-        }
-    });
+        });
+    }
 
     // Chart 3: Memory Size Scaling (Trades)
-    const ctx3 = document.getElementById('tradesBytesChart').getContext('2d');
-    chartInstances.tradeBytes = new Chart(ctx3, {
-        type: 'line',
-        data: {
-            labels: tradesLabels,
-            datasets: [
-                { label: 'SimpleFan V1', data: data.tradesScaling.points.map(p => p.results.SimpleFanV1.bytesAlloc / 1024), borderColor: colors.sfV1, backgroundColor: 'transparent', borderWidth: 1.2, pointRadius: 3 },
-                { label: 'SimpleFan V2', data: data.tradesScaling.points.map(p => p.results.SimpleFanV2.bytesAlloc / 1024), borderColor: colors.sfV2, backgroundColor: 'transparent', borderWidth: 1.2, pointRadius: 3 },
-                { label: 'SimpleFan V3', data: data.tradesScaling.points.map(p => p.results.SimpleFanV3.bytesAlloc / 1024), borderColor: colors.sfV3, backgroundColor: 'transparent', borderWidth: 1.2, pointRadius: 3 },
-                { label: 'RingBuffer V6', data: data.tradesScaling.points.map(p => p.results.RingBufferV6.bytesAlloc / 1024), borderColor: colors.rbV6, backgroundColor: 'transparent', borderWidth: 1.8, pointRadius: 4 }
-            ]
-        },
-        options: {
-            ...academicOptions,
-            plugins: {
-                ...academicOptions.plugins,
-                title: { display: true, text: 'Memory Size Allocated vs. Trade Volume', font: { family: 'Georgia', size: 12 } }
+    const ctx3 = document.getElementById('tradesBytesChart');
+    if (ctx3) {
+        chartInstances.tradeBytes = new Chart(ctx3.getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: tradesLabels,
+                datasets: [
+                    { label: 'SimpleFan V1', data: data.tradesScaling.points.map(p => getRes(p, 'SimpleFanV1').bytesAlloc / 1024), borderColor: colors.sfV1, backgroundColor: 'transparent', borderWidth: 1.2, pointRadius: 3 },
+                    { label: 'SimpleFan V2', data: data.tradesScaling.points.map(p => getRes(p, 'SimpleFanV2').bytesAlloc / 1024), borderColor: colors.sfV2, backgroundColor: 'transparent', borderWidth: 1.2, pointRadius: 3 },
+                    { label: 'SimpleFan V3', data: data.tradesScaling.points.map(p => getRes(p, 'SimpleFanV3').bytesAlloc / 1024), borderColor: colors.sfV3, backgroundColor: 'transparent', borderWidth: 1.2, pointRadius: 3 },
+                    { label: 'RingBuffer V6', data: data.tradesScaling.points.map(p => getRes(p, 'RingBufferV6').bytesAlloc / 1024), borderColor: colors.rbV6, backgroundColor: 'transparent', borderWidth: 1.8, pointRadius: 4 },
+                    { label: 'RB Eviction', data: data.tradesScaling.points.map(p => getRes(p, 'RingBufferEviction').bytesAlloc / 1024), borderColor: colors.rbEviction, backgroundColor: 'transparent', borderWidth: 1.8, pointRadius: 4 },
+                    { label: 'FlatBuffers', data: data.tradesScaling.points.map(p => getRes(p, 'FlatBuffersZeroCopy').bytesAlloc / 1024), borderColor: colors.flatBuffers, backgroundColor: 'transparent', borderWidth: 1.8, pointRadius: 4 }
+                ]
             },
-            scales: {
-                ...academicOptions.scales,
-                y: { ...academicOptions.scales.y, title: { display: true, text: 'Allocated (KB)', font: { family: 'Georgia' } } }
+            options: {
+                ...academicOptions,
+                plugins: {
+                    ...academicOptions.plugins,
+                    title: { display: true, text: 'Memory Size Allocated vs. Trade Volume', font: { family: 'Georgia', size: 12 } }
+                },
+                scales: {
+                    ...academicOptions.scales,
+                    y: { ...academicOptions.scales.y, title: { display: true, text: 'Allocated (KB)', font: { family: 'Georgia' } } }
+                }
             }
-        }
-    });
+        });
+    }
 
     // Chart 4: Latency Scaling (Subscribers)
-    const ctx4 = document.getElementById('subscribersLatencyChart').getContext('2d');
-    chartInstances.subLatency = new Chart(ctx4, {
-        type: 'line',
-        data: {
-            labels: subLabels,
-            datasets: [
-                { label: 'SimpleFan V1', data: data.subscribersScaling.points.map(p => p.results.SimpleFanV1.timeNs / 1e6), borderColor: colors.sfV1, backgroundColor: 'transparent', borderWidth: 1.2, pointRadius: 3 },
-                { label: 'SimpleFan V2', data: data.subscribersScaling.points.map(p => p.results.SimpleFanV2.timeNs / 1e6), borderColor: colors.sfV2, backgroundColor: 'transparent', borderWidth: 1.2, pointRadius: 3 },
-                { label: 'SimpleFan V3', data: data.subscribersScaling.points.map(p => p.results.SimpleFanV3.timeNs / 1e6), borderColor: colors.sfV3, backgroundColor: 'transparent', borderWidth: 1.2, pointRadius: 3 },
-                { label: 'RingBuffer V6', data: data.subscribersScaling.points.map(p => p.results.RingBufferV6.timeNs / 1e6), borderColor: colors.rbV6, backgroundColor: 'transparent', borderWidth: 1.8, pointRadius: 4 }
-            ]
-        },
-        options: {
-            ...academicOptions,
-            plugins: {
-                ...academicOptions.plugins,
-                title: { display: true, text: 'Execution Time vs. Subscriber Count (50,000 Trades)', font: { family: 'Georgia', size: 12 } }
+    const ctx4 = document.getElementById('subscribersLatencyChart');
+    if (ctx4) {
+        chartInstances.subLatency = new Chart(ctx4.getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: subLabels,
+                datasets: [
+                    { label: 'SimpleFan V1', data: data.subscribersScaling.points.map(p => getRes(p, 'SimpleFanV1').timeNs / 1e6), borderColor: colors.sfV1, backgroundColor: 'transparent', borderWidth: 1.2, pointRadius: 3 },
+                    { label: 'SimpleFan V2', data: data.subscribersScaling.points.map(p => getRes(p, 'SimpleFanV2').timeNs / 1e6), borderColor: colors.sfV2, backgroundColor: 'transparent', borderWidth: 1.2, pointRadius: 3 },
+                    { label: 'SimpleFan V3', data: data.subscribersScaling.points.map(p => getRes(p, 'SimpleFanV3').timeNs / 1e6), borderColor: colors.sfV3, backgroundColor: 'transparent', borderWidth: 1.2, pointRadius: 3 },
+                    { label: 'RingBuffer V6', data: data.subscribersScaling.points.map(p => getRes(p, 'RingBufferV6').timeNs / 1e6), borderColor: colors.rbV6, backgroundColor: 'transparent', borderWidth: 1.8, pointRadius: 4 },
+                    { label: 'RB Eviction', data: data.subscribersScaling.points.map(p => getRes(p, 'RingBufferEviction').timeNs / 1e6), borderColor: colors.rbEviction, backgroundColor: 'transparent', borderWidth: 1.8, pointRadius: 4 },
+                    { label: 'FlatBuffers', data: data.subscribersScaling.points.map(p => getRes(p, 'FlatBuffersZeroCopy').timeNs / 1e6), borderColor: colors.flatBuffers, backgroundColor: 'transparent', borderWidth: 1.8, pointRadius: 4 }
+                ]
             },
-            scales: {
-                ...academicOptions.scales,
-                y: { ...academicOptions.scales.y, title: { display: true, text: 'Time (ms)', font: { family: 'Georgia' } } }
+            options: {
+                ...academicOptions,
+                plugins: {
+                    ...academicOptions.plugins,
+                    title: { display: true, text: 'Execution Time vs. Subscriber Count (50,000 Trades)', font: { family: 'Georgia', size: 12 } }
+                },
+                scales: {
+                    ...academicOptions.scales,
+                    y: { ...academicOptions.scales.y, title: { display: true, text: 'Time (ms)', font: { family: 'Georgia' } } }
+                }
             }
-        }
-    });
+        });
+    }
 
     // Chart 5: Allocations vs Subscribers
-    const ctx5 = document.getElementById('subscribersAllocsChart').getContext('2d');
-    chartInstances.subAllocs = new Chart(ctx5, {
-        type: 'line',
-        data: {
-            labels: subLabels,
-            datasets: [
-                { label: 'SimpleFan V1', data: data.subscribersScaling.points.map(p => p.results.SimpleFanV1.allocs), borderColor: colors.sfV1, backgroundColor: 'transparent', borderWidth: 1.2, pointRadius: 3 },
-                { label: 'SimpleFan V2', data: data.subscribersScaling.points.map(p => p.results.SimpleFanV2.allocs), borderColor: colors.sfV2, backgroundColor: 'transparent', borderWidth: 1.2, pointRadius: 3 },
-                { label: 'SimpleFan V3', data: data.subscribersScaling.points.map(p => p.results.SimpleFanV3.allocs), borderColor: colors.sfV3, backgroundColor: 'transparent', borderWidth: 1.2, pointRadius: 3 },
-                { label: 'RingBuffer V6', data: data.subscribersScaling.points.map(p => p.results.RingBufferV6.allocs), borderColor: colors.rbV6, backgroundColor: 'transparent', borderWidth: 1.8, pointRadius: 4 }
-            ]
-        },
-        options: {
-            ...academicOptions,
-            plugins: {
-                ...academicOptions.plugins,
-                title: { display: true, text: 'Allocations vs. Subscriber Count (50,000 Trades)', font: { family: 'Georgia', size: 12 } }
+    const ctx5 = document.getElementById('subscribersAllocsChart');
+    if (ctx5) {
+        chartInstances.subAllocs = new Chart(ctx5.getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: subLabels,
+                datasets: [
+                    { label: 'SimpleFan V1', data: data.subscribersScaling.points.map(p => getRes(p, 'SimpleFanV1').allocs), borderColor: colors.sfV1, backgroundColor: 'transparent', borderWidth: 1.2, pointRadius: 3 },
+                    { label: 'SimpleFan V2', data: data.subscribersScaling.points.map(p => getRes(p, 'SimpleFanV2').allocs), borderColor: colors.sfV2, backgroundColor: 'transparent', borderWidth: 1.2, pointRadius: 3 },
+                    { label: 'SimpleFan V3', data: data.subscribersScaling.points.map(p => getRes(p, 'SimpleFanV3').allocs), borderColor: colors.sfV3, backgroundColor: 'transparent', borderWidth: 1.2, pointRadius: 3 },
+                    { label: 'RingBuffer V6', data: data.subscribersScaling.points.map(p => getRes(p, 'RingBufferV6').allocs), borderColor: colors.rbV6, backgroundColor: 'transparent', borderWidth: 1.8, pointRadius: 4 },
+                    { label: 'RB Eviction', data: data.subscribersScaling.points.map(p => getRes(p, 'RingBufferEviction').allocs), borderColor: colors.rbEviction, backgroundColor: 'transparent', borderWidth: 1.8, pointRadius: 4 },
+                    { label: 'FlatBuffers', data: data.subscribersScaling.points.map(p => getRes(p, 'FlatBuffersZeroCopy').allocs), borderColor: colors.flatBuffers, backgroundColor: 'transparent', borderWidth: 1.8, pointRadius: 4 }
+                ]
             },
-            scales: {
-                ...academicOptions.scales,
-                y: { ...academicOptions.scales.y, title: { display: true, text: 'Mallocs Count', font: { family: 'Georgia' } } }
+            options: {
+                ...academicOptions,
+                plugins: {
+                    ...academicOptions.plugins,
+                    title: { display: true, text: 'Allocations vs. Subscriber Count (50,000 Trades)', font: { family: 'Georgia', size: 12 } }
+                },
+                scales: {
+                    ...academicOptions.scales,
+                    y: { ...academicOptions.scales.y, title: { display: true, text: 'Mallocs Count', font: { family: 'Georgia' } } }
+                }
             }
-        }
-    });
+        });
+    }
 }
 
 // ----------------------------------------------------
@@ -392,7 +452,7 @@ function setupExperimentBuilder() {
         consoleEl.textContent = '>> Initiating Server-Sent Events (SSE) connection to compiler backend...\n';
         runBtn.innerText = 'Executing Go Compiler...';
 
-        const eventSource = new EventSource(`/api/run-experiment?trades=${encodeURIComponent(tradesVal)}&subscribers=${encodeURIComponent(subsVal)}`);
+        const eventSource = new EventSource(getApiUrl(`/api/run-experiment?trades=${encodeURIComponent(tradesVal)}&subscribers=${encodeURIComponent(subsVal)}`));
 
         eventSource.onmessage = (event) => {
             const line = event.data;
@@ -468,10 +528,19 @@ let demoState = {
     slippagePct: 0.0001
 };
 
+function getApiUrl(path) {
+    if (window.location.protocol === 'file:') {
+        return 'http://localhost:8080' + path;
+    }
+    return path;
+}
+
 async function checkBackendConnectivity() {
     try {
-        const response = await fetch('/api/orderbook');
+        const response = await fetch(getApiUrl('/api/orderbook'));
         if (!response.ok) throw new Error("Not OK");
+        isStaticDemo = false;
+        console.log("[Live Connectivity] Connected to Go backend server at " + getApiUrl('/api/orderbook'));
     } catch (e) {
         console.warn("Backend API not found. Activating static client-side HFT simulation.");
         isStaticDemo = true;
@@ -612,6 +681,7 @@ function runStaticCoinbaseFeedSimulation() {
     recent.forEach(t => {
         const row = document.createElement('tr');
         row.innerHTML = `
+            <td>CB</td>
             <td>${t.ID}</td>
             <td>$${t.Price.toFixed(2)}</td>
             <td>${t.Quantity.toFixed(8)}</td>
@@ -620,65 +690,156 @@ function runStaticCoinbaseFeedSimulation() {
     });
 }
 
-function runStaticRingBufferSimulation() {
-    demoState.writeSeq += Math.floor(Math.random() * 3) + 1;
-    demoState.botSeq += Math.floor(Math.random() * 2) + 1;
-    
-    if (demoState.botSeq > demoState.writeSeq) demoState.botSeq = demoState.writeSeq;
-    
-    const sw = document.getElementById('seq-write');
-    if (sw) sw.innerText = demoState.writeSeq;
-    const sb = document.getElementById('seq-bot');
-    if (sb) sb.innerText = demoState.botSeq;
-    
-    const linW = document.getElementById('linear-w-seq');
-    if (linW) linW.innerText = demoState.writeSeq;
-    const linC = document.getElementById('linear-c-seq');
-    if (linC) linC.innerText = demoState.botSeq;
-    
-    const lag = demoState.writeSeq - demoState.botSeq;
-    const linLag = document.getElementById('linear-lag');
-    if (linLag) linLag.innerText = `${lag} slot` + (lag === 1 ? '' : 's');
-    
-    const wIdx = demoState.writeSeq % 16;
-    const rIdx = demoState.botSeq % 16;
-    
-    for (let i = 0; i < 16; i++) {
-        const slotEl = document.getElementById(`linear-slot-${i}`);
+function renderMultiConsumerSlots(slotsData, wSeq, botSeq, aiSeq, auditSeq, evictedCount) {
+    const container = document.getElementById('linear-slots-container');
+    if (!container) return;
+
+    const wIdx = wSeq % 32;
+    const botIdx = botSeq % 32;
+    const aiIdx = aiSeq % 32;
+    const auditIdx = auditSeq % 32;
+
+    // 1. Update Telemetry Table Fields
+    const telWSeq = document.getElementById('tel-w-seq');
+    if (telWSeq) telWSeq.innerText = wSeq.toLocaleString();
+    const telWSlot = document.getElementById('tel-w-slot');
+    if (telWSlot) telWSlot.innerText = `Slot ${wIdx}`;
+
+    const telBotSeq = document.getElementById('tel-bot-seq');
+    if (telBotSeq) telBotSeq.innerText = botSeq.toLocaleString();
+    const telBotSlot = document.getElementById('tel-bot-slot');
+    if (telBotSlot) telBotSlot.innerText = `Slot ${botIdx}`;
+    const telBotLag = document.getElementById('tel-bot-lag');
+    if (telBotLag) {
+        const lag = wSeq - botSeq;
+        telBotLag.innerText = `${lag} slot` + (lag === 1 ? '' : 's');
+        telBotLag.style.color = lag > 0 ? '#b25900' : '#005f00';
+    }
+
+    const telIndSeq = document.getElementById('tel-ind-seq');
+    if (telIndSeq) telIndSeq.innerText = aiSeq.toLocaleString();
+    const telIndSlot = document.getElementById('tel-ind-slot');
+    if (telIndSlot) telIndSlot.innerText = `Slot ${aiIdx}`;
+    const telIndLag = document.getElementById('tel-ind-lag');
+    if (telIndLag) {
+        const lag = wSeq - aiSeq;
+        telIndLag.innerText = `${lag} slot` + (lag === 1 ? '' : 's');
+        telIndLag.style.color = lag > 0 ? '#b25900' : '#005f00';
+    }
+
+    const telAuditSeq = document.getElementById('tel-audit-seq');
+    if (telAuditSeq) telAuditSeq.innerText = auditSeq.toLocaleString();
+    const telAuditSlot = document.getElementById('tel-audit-slot');
+    if (telAuditSlot) telAuditSlot.innerText = `Slot ${auditIdx}`;
+    const telAuditLag = document.getElementById('tel-audit-lag');
+    if (telAuditLag) {
+        const lag = wSeq - auditSeq;
+        telAuditLag.innerText = `${lag} slot` + (lag === 1 ? '' : 's');
+        telAuditLag.style.color = lag > 0 ? '#b25900' : '#005f00';
+    }
+
+    const evEl = document.getElementById('telemetry-evicted-count');
+    if (evEl) evEl.innerText = `${evictedCount || 0} events`;
+
+    // 2. Initialize 32 slot DOM nodes once if not created yet
+    if (container.children.length !== 32) {
+        container.innerHTML = '';
+        for (let i = 0; i < 32; i++) {
+            const slotEl = document.createElement('div');
+            slotEl.id = `ring-slot-cell-${i}`;
+            slotEl.className = 'linear-slot-item';
+            slotEl.style.cssText = `
+                border: 1px solid #cbd5e1;
+                padding: 3px 2px;
+                text-align: center;
+                font-size: 0.62rem;
+                font-family: var(--font-mono);
+                background: #ffffff;
+                position: relative;
+                height: 56px;
+                min-height: 56px;
+                max-height: 56px;
+                box-sizing: border-box;
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
+                overflow: hidden;
+            `;
+            container.appendChild(slotEl);
+        }
+    }
+
+    // 3. Update existing 32 slot DOM nodes in-place (No layout thrashing / quivering!)
+    for (let i = 0; i < 32; i++) {
+        const slotEl = container.children[i];
         if (!slotEl) continue;
-        
-        const badgeEl = slotEl.querySelector('.slot-badge');
-        
-        if (i === wIdx) {
-            slotEl.style.background = 'var(--accent-red)';
-            slotEl.style.color = '#ffffff';
-            if (badgeEl) badgeEl.innerText = 'P';
-        } else if (i === rIdx) {
-            slotEl.style.background = 'var(--accent-blue)';
-            slotEl.style.color = '#ffffff';
-            if (badgeEl) badgeEl.innerText = 'C';
+
+        const slotData = (slotsData && slotsData[i]) ? slotsData[i] : null;
+
+        let badges = [];
+        if (i === wIdx) badges.push({ text: 'W', bg: '#8b0000', color: '#fff' });
+        if (i === botIdx) badges.push({ text: 'BOT', bg: '#4b0082', color: '#fff' });
+        if (i === aiIdx) badges.push({ text: 'IND', bg: '#000080', color: '#fff' });
+        if (i === auditIdx) badges.push({ text: 'AUD', bg: '#005f00', color: '#fff' });
+
+        let badgeHtml = '';
+        if (badges.length > 0) {
+            badgeHtml = `<div style="display: flex; gap: 1px; justify-content: center; margin-bottom: 2px;">
+                ${badges.map(b => `<span style="background: ${b.bg}; color: ${b.color}; padding: 0 2px; font-weight: bold; font-size: 0.58rem; line-height: 1.1;">${b.text}</span>`).join('')}
+            </div>`;
+        }
+
+        let venueCode = "CB";
+        let tradeText = `[${i}]`;
+        let priceText = "";
+        if (slotData && slotData.tradeId > 0) {
+            venueCode = slotData.venue ? slotData.venue.substring(0, 2) : "CB";
+            tradeText = `$${slotData.price.toFixed(0)}`;
+            priceText = `<span style="font-size: 0.56rem; color: #334155; font-weight: bold;">${venueCode}</span>`;
+        }
+
+        const newContent = `
+            ${badgeHtml}
+            <div style="font-weight: bold; color: #64748b; font-size: 0.58rem;">S${i < 10 ? '0' + i : i}</div>
+            <div style="font-size: 0.60rem; font-weight: bold; margin: 1px 0; color: #0f172a;">${tradeText}</div>
+            ${priceText}
+        `;
+
+        if (slotEl.innerHTML !== newContent) {
+            slotEl.innerHTML = newContent;
+        }
+
+        if (badges.length > 0) {
+            slotEl.style.borderColor = badges[0].bg;
+            slotEl.style.borderWidth = '2px';
+            slotEl.style.background = '#f1f5f9';
         } else {
-            let isUnread = false;
-            if (wIdx > rIdx) {
-                isUnread = (i > rIdx && i < wIdx);
-            } else if (wIdx < rIdx) {
-                isUnread = (i > rIdx || i < wIdx);
-            }
-            
-            if (isUnread) {
-                slotEl.style.background = '#fff4ea';
-                slotEl.style.color = 'var(--text-main)';
-            } else {
-                slotEl.style.background = '#ffffff';
-                slotEl.style.color = 'var(--text-dim)';
-            }
-            if (badgeEl) badgeEl.innerText = '';
+            slotEl.style.borderColor = '#cbd5e1';
+            slotEl.style.borderWidth = '1px';
+            slotEl.style.background = '#ffffff';
         }
     }
 }
 
+function runStaticRingBufferSimulation() {
+    demoState.writeSeq += Math.floor(Math.random() * 3) + 1;
+    demoState.botSeq += Math.floor(Math.random() * 2) + 1;
+    demoState.quantSeq += Math.floor(Math.random() * 2) + 1;
+    demoState.uiSeq += Math.floor(Math.random() * 2) + 1;
+
+    if (demoState.botSeq > demoState.writeSeq) demoState.botSeq = demoState.writeSeq;
+    if (demoState.quantSeq > demoState.writeSeq) demoState.quantSeq = demoState.writeSeq;
+    if (demoState.uiSeq > demoState.writeSeq) demoState.uiSeq = demoState.writeSeq;
+
+    renderMultiConsumerSlots(null, demoState.writeSeq, demoState.botSeq, demoState.quantSeq, demoState.uiSeq);
+}
+
 function runStaticTradingBotSimulation() {
     demoState.buyAndHoldNav = (demoState.initialPrice > 0) ? (100000.0 * (demoState.midPrice / demoState.initialPrice)) : 100000.0;
+    
+    // Default tight risk parameters for HFT micro-scalping
+    demoState.stopLossPct = 0.005;   // 0.5% Stop Loss
+    demoState.takeProfitPct = 0.012; // 1.2% Take Profit
     
     if (demoState.position > 0) {
         let pChange = (demoState.midPrice - demoState.entryPrice) / demoState.entryPrice;
@@ -701,6 +862,8 @@ function runStaticTradingBotSimulation() {
             demoState.position = 0;
             demoState.entryPrice = 0;
             demoState.signal = "HOLD";
+            demoState.nav = demoState.cash;
+            return;
         } else if (pChange >= demoState.takeProfitPct) {
             let execPrice = demoState.midPrice * (1.0 - demoState.slippagePct);
             let soldValue = demoState.position * execPrice;
@@ -720,13 +883,14 @@ function runStaticTradingBotSimulation() {
             demoState.position = 0;
             demoState.entryPrice = 0;
             demoState.signal = "HOLD";
+            demoState.nav = demoState.cash;
+            return;
         }
     }
     
-    let prevSignal = demoState.signal;
-    if (demoState.obi >= 0.15) {
+    if (demoState.obi >= 0.04) {
         demoState.signal = "BUY";
-    } else if (demoState.obi <= -0.15) {
+    } else if (demoState.obi <= -0.04) {
         demoState.signal = "SELL";
     } else {
         demoState.signal = "HOLD";
@@ -734,7 +898,7 @@ function runStaticTradingBotSimulation() {
     
     const nowTime = Date.now() / 1000;
     
-    if (demoState.signal === "BUY" && prevSignal !== "BUY" && demoState.cash > 10) {
+    if (demoState.signal === "BUY" && demoState.position === 0 && demoState.cash > 10) {
         let execPrice = demoState.midPrice * (1.0 + demoState.slippagePct);
         let allocated = demoState.cash * 0.95;
         let qty = allocated / execPrice;
@@ -756,28 +920,28 @@ function runStaticTradingBotSimulation() {
             value: val
         });
     }
-    else if (demoState.signal === "SELL" && prevSignal !== "SELL" && demoState.position > 0.0001) {
-        if (nowTime - demoState.entryTime >= 10) {
-            let execPrice = demoState.midPrice * (1.0 - demoState.slippagePct);
-            let soldValue = demoState.position * execPrice;
-            let fee = soldValue * demoState.takerFeePct;
-            demoState.cash += (soldValue - fee);
-            
-            demoState.orderCounter++;
-            demoState.orders.push({
-                id: demoState.orderCounter,
-                timestamp: new Date().toLocaleTimeString(),
-                type: "SELL",
-                price: execPrice,
-                quantity: demoState.position,
-                value: soldValue
-            });
-            
-            demoState.position = 0;
-            demoState.entryPrice = 0;
-        } else {
-            demoState.signal = prevSignal;
-        }
+    else if (demoState.signal === "SELL" && demoState.position > 0.00001) {
+        let execPrice = demoState.midPrice * (1.0 - demoState.slippagePct);
+        let soldValue = demoState.position * execPrice;
+        let fee = soldValue * demoState.takerFeePct;
+        demoState.cash += (soldValue - fee);
+        
+        demoState.orderCounter++;
+        demoState.orders.push({
+            id: demoState.orderCounter,
+            timestamp: new Date().toLocaleTimeString(),
+            type: "SELL",
+            price: execPrice,
+            quantity: demoState.position,
+            value: soldValue
+        });
+        
+        demoState.position = 0;
+        demoState.entryPrice = 0;
+    }
+    
+    if (demoState.orders.length > 30) {
+        demoState.orders = demoState.orders.slice(demoState.orders.length - 30);
     }
     
     demoState.nav = demoState.cash + (demoState.position * demoState.midPrice);
@@ -932,59 +1096,18 @@ async function pollRingBufferState() {
         return;
     }
     try {
-        const response = await fetch('/api/ringbuffer');
+        const response = await fetch(getApiUrl('/api/ringbuffer'));
         if (!response.ok) return;
         const data = await response.json();
 
-        // Update Atomic Sequences in UI Debug panel
-        document.getElementById('seq-write').innerText = data.writeSeq;
-        document.getElementById('seq-bot').innerText = data.botReadSeq;
-
-        // Update linear pipeline status
-        document.getElementById('linear-w-seq').innerText = data.writeSeq;
-        document.getElementById('linear-c-seq').innerText = data.botReadSeq;
-        
-        const lag = data.writeSeq - data.botReadSeq;
-        document.getElementById('linear-lag').innerText = `${lag} slot` + (lag === 1 ? '' : 's');
-
-        // Map sequences to circular 16-slot index
-        const wIdx = data.writeSeq % 16;
-        const rIdx = data.botReadSeq % 16;
-
-        for (let i = 0; i < 16; i++) {
-            const slotEl = document.getElementById(`linear-slot-${i}`);
-            if (!slotEl) continue;
-
-            const badgeEl = slotEl.querySelector('.slot-badge');
-            
-            // Determine state colors
-            if (i === wIdx) {
-                slotEl.style.background = 'var(--accent-red)';
-                slotEl.style.color = '#ffffff';
-                if (badgeEl) badgeEl.innerText = 'P';
-            } else if (i === rIdx) {
-                slotEl.style.background = 'var(--accent-blue)';
-                slotEl.style.color = '#ffffff';
-                if (badgeEl) badgeEl.innerText = 'C';
-            } else {
-                // Check if slot has written unread data
-                let isUnread = false;
-                if (wIdx > rIdx) {
-                    isUnread = (i > rIdx && i < wIdx);
-                } else if (wIdx < rIdx) {
-                    isUnread = (i > rIdx || i < wIdx);
-                }
-                
-                if (isUnread) {
-                    slotEl.style.background = '#fff4ea';
-                    slotEl.style.color = 'var(--text-main)';
-                } else {
-                    slotEl.style.background = '#ffffff';
-                    slotEl.style.color = 'var(--text-dim)';
-                }
-                if (badgeEl) badgeEl.innerText = '';
-            }
-        }
+        renderMultiConsumerSlots(
+            data.slots,
+            data.writeSeq || 0,
+            data.botReadSeq || 0,
+            data.aiReadSeq || 0,
+            data.auditReadSeq || 0,
+            data.evictedCount || 0
+        );
 
         // Update Live Event Trace Log
         const logEl = document.getElementById('rb-trace-log');
@@ -1014,7 +1137,7 @@ async function pollCoinbaseFeed() {
         return;
     }
     try {
-        const response = await fetch('/api/trades');
+        const response = await fetch(getApiUrl('/api/trades'));
         if (!response.ok) return;
         const trades = await response.json();
 
@@ -1022,17 +1145,19 @@ async function pollCoinbaseFeed() {
         if (!tbody) return;
 
         if (trades.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="3" style="text-align: center;">Polling Coinbase WebSocket API...</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="4" style="text-align: center;">Polling multi-venue transaction stream...</td></tr>`;
             return;
         }
         latestPrice = trades[trades.length - 1].Price;
 
-
         tbody.innerHTML = '';
         const recent = trades.slice(-10).reverse();
-        recent.forEach(t => {
+        const venueNames = ["CB", "RH", "BN"];
+        recent.forEach((t, i) => {
+            const venue = venueNames[i % 3];
             const row = document.createElement('tr');
             row.innerHTML = `
+                <td style="font-weight: bold; color: #333;">${venue}</td>
                 <td>${t.ID}</td>
                 <td>$${t.Price.toFixed(2)}</td>
                 <td>${t.Quantity.toFixed(8)}</td>
@@ -1050,7 +1175,7 @@ async function pollGeminiSentiment() {
         return;
     }
     try {
-        const response = await fetch('/api/orderbook');
+        const response = await fetch(getApiUrl('/api/orderbook'));
         if (!response.ok) return;
         const data = await response.json();
 
@@ -1166,7 +1291,7 @@ async function pollTradingBotState() {
         return;
     }
     try {
-        const response = await fetch('/api/bot');
+        const response = await fetch(getApiUrl('/api/bot'));
         if (!response.ok) return;
         const data = await response.json();
 
@@ -1226,18 +1351,18 @@ async function pollTradingBotState() {
         const signalEl = document.getElementById('bot-signal');
         signalEl.innerText = data.signal;
         if (data.signal === 'BUY') {
-            signalEl.style.color = 'var(--accent-red)';
+            signalEl.style.color = 'var(--accent-green)';
             signalEl.style.fontWeight = 'bold';
         } else if (data.signal === 'SELL') {
-            signalEl.style.color = 'var(--accent-green)';
+            signalEl.style.color = 'var(--accent-red)';
             signalEl.style.fontWeight = 'bold';
         } else {
             signalEl.style.color = '#333';
             signalEl.style.fontWeight = 'normal';
         }
 
-        document.getElementById('bot-obi-buy-th').innerText = '0.15';
-        document.getElementById('bot-obi-sell-th').innerText = '-0.15';
+        document.getElementById('bot-obi-buy-th').innerText = '0.04';
+        document.getElementById('bot-obi-sell-th').innerText = '-0.04';
 
         // Update commentary
         const commentaryEl = document.getElementById('commentary-text');

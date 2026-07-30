@@ -3,57 +3,178 @@
     "subscribers": 100,
     "points": [
       {
+        "trades": 1000,
+        "results": {
+          "FlatBuffersZeroCopy": {
+            "timeNs": 4300,
+            "allocs": 1,
+            "bytesAlloc": 16
+          },
+          "RingBufferEviction": {
+            "timeNs": 4600838,
+            "allocs": 410,
+            "bytesAlloc": 141296
+          },
+          "RingBufferV6": {
+            "timeNs": 4987783,
+            "allocs": 447,
+            "bytesAlloc": 145440
+          },
+          "SimpleFanV1": {
+            "timeNs": 35673146,
+            "allocs": 1473,
+            "bytesAlloc": 16693872
+          },
+          "SimpleFanV2": {
+            "timeNs": 15770371,
+            "allocs": 450,
+            "bytesAlloc": 1882848
+          },
+          "SimpleFanV3": {
+            "timeNs": 8048319,
+            "allocs": 594,
+            "bytesAlloc": 4997568
+          }
+        }
+      },
+      {
+        "trades": 5000,
+        "results": {
+          "FlatBuffersZeroCopy": {
+            "timeNs": 11315,
+            "allocs": 1,
+            "bytesAlloc": 16
+          },
+          "RingBufferEviction": {
+            "timeNs": 16132434,
+            "allocs": 439,
+            "bytesAlloc": 308384
+          },
+          "RingBufferV6": {
+            "timeNs": 45456350,
+            "allocs": 439,
+            "bytesAlloc": 308384
+          },
+          "SimpleFanV1": {
+            "timeNs": 101388583,
+            "allocs": 670,
+            "bytesAlloc": 16600256
+          },
+          "SimpleFanV2": {
+            "timeNs": 82946501,
+            "allocs": 3204,
+            "bytesAlloc": 2150248
+          },
+          "SimpleFanV3": {
+            "timeNs": 2224673,
+            "allocs": 438,
+            "bytesAlloc": 4984224
+          }
+        }
+      },
+      {
         "trades": 10000,
         "results": {
-          "RingBufferV6": { "timeNs": 30000000, "allocs": 408, "bytesAlloc": 580000 },
-          "SimpleFanV1": { "timeNs": 1640000000, "allocs": 488, "bytesAlloc": 83000000 },
-          "SimpleFanV2": { "timeNs": 450000000, "allocs": 410, "bytesAlloc": 19000000 },
-          "SimpleFanV3": { "timeNs": 250000000, "allocs": 409, "bytesAlloc": 12000000 }
+          "FlatBuffersZeroCopy": {
+            "timeNs": 10242,
+            "allocs": 1,
+            "bytesAlloc": 16
+          },
+          "RingBufferEviction": {
+            "timeNs": 9998737,
+            "allocs": 407,
+            "bytesAlloc": 501408
+          },
+          "RingBufferV6": {
+            "timeNs": 73861649,
+            "allocs": 598,
+            "bytesAlloc": 518672
+          },
+          "SimpleFanV1": {
+            "timeNs": 189601832,
+            "allocs": 596,
+            "bytesAlloc": 16581296
+          },
+          "SimpleFanV2": {
+            "timeNs": 184155866,
+            "allocs": 1428,
+            "bytesAlloc": 1989648
+          },
+          "SimpleFanV3": {
+            "timeNs": 4843325,
+            "allocs": 421,
+            "bytesAlloc": 4982320
+          }
         }
       },
       {
         "trades": 50000,
         "results": {
-          "RingBufferV6": { "timeNs": 150000000, "allocs": 408, "bytesAlloc": 2900000 },
-          "SimpleFanV1": { "timeNs": 8210000000, "allocs": 488, "bytesAlloc": 410000000 },
-          "SimpleFanV2": { "timeNs": 2250000000, "allocs": 410, "bytesAlloc": 96000000 },
-          "SimpleFanV3": { "timeNs": 1250000000, "allocs": 409, "bytesAlloc": 60000000 }
+          "FlatBuffersZeroCopy": {
+            "timeNs": 43688,
+            "allocs": 1,
+            "bytesAlloc": 16
+          },
+          "RingBufferEviction": {
+            "timeNs": 23386622,
+            "allocs": 424,
+            "bytesAlloc": 2108944
+          },
+          "RingBufferV6": {
+            "timeNs": 323432920,
+            "allocs": 691,
+            "bytesAlloc": 2169344
+          },
+          "SimpleFanV1": {
+            "timeNs": 1024196107,
+            "allocs": 3199,
+            "bytesAlloc": 16857392
+          },
+          "SimpleFanV2": {
+            "timeNs": 798516105,
+            "allocs": 3650,
+            "bytesAlloc": 2191520
+          },
+          "SimpleFanV3": {
+            "timeNs": 26308180,
+            "allocs": 408,
+            "bytesAlloc": 4980864
+          }
         }
       },
       {
         "trades": 100000,
         "results": {
-          "RingBufferV6": { "timeNs": 300000000, "allocs": 408, "bytesAlloc": 5800000 },
-          "SimpleFanV1": { "timeNs": 16420000000, "allocs": 488, "bytesAlloc": 830000000 },
-          "SimpleFanV2": { "timeNs": 4500000000, "allocs": 410, "bytesAlloc": 190000000 },
-          "SimpleFanV3": { "timeNs": 2500000000, "allocs": 409, "bytesAlloc": 120000000 }
-        }
-      },
-      {
-        "trades": 250000,
-        "results": {
-          "RingBufferV6": { "timeNs": 750000000, "allocs": 408, "bytesAlloc": 14000000 },
-          "SimpleFanV1": { "timeNs": 41050000000, "allocs": 488, "bytesAlloc": 2100000000 },
-          "SimpleFanV2": { "timeNs": 11250000000, "allocs": 410, "bytesAlloc": 480000000 },
-          "SimpleFanV3": { "timeNs": 6250000000, "allocs": 409, "bytesAlloc": 300000000 }
-        }
-      },
-      {
-        "trades": 500000,
-        "results": {
-          "RingBufferV6": { "timeNs": 1490000000, "allocs": 408, "bytesAlloc": 29000000 },
-          "SimpleFanV1": { "timeNs": 82100000000, "allocs": 488, "bytesAlloc": 4100000000 },
-          "SimpleFanV2": { "timeNs": 22500000000, "allocs": 410, "bytesAlloc": 960000000 },
-          "SimpleFanV3": { "timeNs": 12500000000, "allocs": 409, "bytesAlloc": 600000000 }
-        }
-      },
-      {
-        "trades": 1000000,
-        "results": {
-          "RingBufferV6": { "timeNs": 2980000000, "allocs": 408, "bytesAlloc": 58000000 },
-          "SimpleFanV1": { "timeNs": 164200000000, "allocs": 488, "bytesAlloc": 8300000000 },
-          "SimpleFanV2": { "timeNs": 45000000000, "allocs": 410, "bytesAlloc": 1900000000 },
-          "SimpleFanV3": { "timeNs": 25000000000, "allocs": 409, "bytesAlloc": 1200000000 }
+          "FlatBuffersZeroCopy": {
+            "timeNs": 165958,
+            "allocs": 1,
+            "bytesAlloc": 16
+          },
+          "RingBufferEviction": {
+            "timeNs": 29537173,
+            "allocs": 407,
+            "bytesAlloc": 4105888
+          },
+          "RingBufferV6": {
+            "timeNs": 684710040,
+            "allocs": 2660,
+            "bytesAlloc": 4337120
+          },
+          "SimpleFanV1": {
+            "timeNs": 2316965135,
+            "allocs": 7351,
+            "bytesAlloc": 17187288
+          },
+          "SimpleFanV2": {
+            "timeNs": 1895421581,
+            "allocs": 8101,
+            "bytesAlloc": 2506016
+          },
+          "SimpleFanV3": {
+            "timeNs": 55143632,
+            "allocs": 407,
+            "bytesAlloc": 4980752
+          }
         }
       }
     ]
@@ -64,64 +185,211 @@
       {
         "subscribers": 10,
         "results": {
-          "RingBufferV6": { "timeNs": 15000000, "allocs": 408, "bytesAlloc": 2900000 },
-          "SimpleFanV1": { "timeNs": 160000000, "allocs": 488, "bytesAlloc": 41000000 },
-          "SimpleFanV2": { "timeNs": 80000000, "allocs": 410, "bytesAlloc": 9600000 },
-          "SimpleFanV3": { "timeNs": 40000000, "allocs": 409, "bytesAlloc": 6000000 }
+          "FlatBuffersZeroCopy": {
+            "timeNs": 42674,
+            "allocs": 1,
+            "bytesAlloc": 16
+          },
+          "RingBufferEviction": {
+            "timeNs": 12581589,
+            "allocs": 47,
+            "bytesAlloc": 2091104
+          },
+          "RingBufferV6": {
+            "timeNs": 34744767,
+            "allocs": 1998,
+            "bytesAlloc": 2270296
+          },
+          "SimpleFanV1": {
+            "timeNs": 119795312,
+            "allocs": 1066,
+            "bytesAlloc": 1920616
+          },
+          "SimpleFanV2": {
+            "timeNs": 102530742,
+            "allocs": 47,
+            "bytesAlloc": 204656
+          },
+          "SimpleFanV3": {
+            "timeNs": 2491125,
+            "allocs": 47,
+            "bytesAlloc": 542576
+          }
         }
       },
       {
         "subscribers": 50,
         "results": {
-          "RingBufferV6": { "timeNs": 40000000, "allocs": 408, "bytesAlloc": 2900000 },
-          "SimpleFanV1": { "timeNs": 820000000, "allocs": 488, "bytesAlloc": 210000000 },
-          "SimpleFanV2": { "timeNs": 400000000, "allocs": 410, "bytesAlloc": 48000000 },
-          "SimpleFanV3": { "timeNs": 200000000, "allocs": 409, "bytesAlloc": 30000000 }
+          "FlatBuffersZeroCopy": {
+            "timeNs": 86464,
+            "allocs": 1,
+            "bytesAlloc": 16
+          },
+          "RingBufferEviction": {
+            "timeNs": 27665976,
+            "allocs": 207,
+            "bytesAlloc": 2098160
+          },
+          "RingBufferV6": {
+            "timeNs": 375628618,
+            "allocs": 7450,
+            "bytesAlloc": 4639216
+          },
+          "SimpleFanV1": {
+            "timeNs": 510929082,
+            "allocs": 641,
+            "bytesAlloc": 8429752
+          },
+          "SimpleFanV2": {
+            "timeNs": 421360611,
+            "allocs": 1143,
+            "bytesAlloc": 1089832
+          },
+          "SimpleFanV3": {
+            "timeNs": 8026320,
+            "allocs": 231,
+            "bytesAlloc": 2517760
+          }
         }
       },
       {
         "subscribers": 100,
         "results": {
-          "RingBufferV6": { "timeNs": 75000000, "allocs": 408, "bytesAlloc": 2900000 },
-          "SimpleFanV1": { "timeNs": 1640000000, "allocs": 488, "bytesAlloc": 410000000 },
-          "SimpleFanV2": { "timeNs": 800000000, "allocs": 410, "bytesAlloc": 96000000 },
-          "SimpleFanV3": { "timeNs": 400000000, "allocs": 409, "bytesAlloc": 60000000 }
-        }
-      },
-      {
-        "subscribers": 250,
-        "results": {
-          "RingBufferV6": { "timeNs": 180000000, "allocs": 408, "bytesAlloc": 2900000 },
-          "SimpleFanV1": { "timeNs": 4100000000, "allocs": 488, "bytesAlloc": 1000000000 },
-          "SimpleFanV2": { "timeNs": 2000000000, "allocs": 410, "bytesAlloc": 240000000 },
-          "SimpleFanV3": { "timeNs": 1000000000, "allocs": 409, "bytesAlloc": 150000000 }
+          "FlatBuffersZeroCopy": {
+            "timeNs": 183588,
+            "allocs": 1,
+            "bytesAlloc": 16
+          },
+          "RingBufferEviction": {
+            "timeNs": 21982069,
+            "allocs": 430,
+            "bytesAlloc": 2112928
+          },
+          "RingBufferV6": {
+            "timeNs": 335695034,
+            "allocs": 2643,
+            "bytesAlloc": 2273064
+          },
+          "SimpleFanV1": {
+            "timeNs": 1541687503,
+            "allocs": 6629,
+            "bytesAlloc": 17168536
+          },
+          "SimpleFanV2": {
+            "timeNs": 1276395099,
+            "allocs": 19949,
+            "bytesAlloc": 333500288
+          },
+          "SimpleFanV3": {
+            "timeNs": 11802841,
+            "allocs": 600,
+            "bytesAlloc": 5000448
+          }
         }
       },
       {
         "subscribers": 500,
         "results": {
-          "RingBufferV6": { "timeNs": 350000000, "allocs": 408, "bytesAlloc": 2900000 },
-          "SimpleFanV1": { "timeNs": 8200000000, "allocs": 488, "bytesAlloc": 2100000000 },
-          "SimpleFanV2": { "timeNs": 4000000000, "allocs": 410, "bytesAlloc": 480000000 },
-          "SimpleFanV3": { "timeNs": 2000000000, "allocs": 409, "bytesAlloc": 300000000 }
+          "FlatBuffersZeroCopy": {
+            "timeNs": 100440,
+            "allocs": 1,
+            "bytesAlloc": 16
+          },
+          "RingBufferEviction": {
+            "timeNs": 59716560,
+            "allocs": 2151,
+            "bytesAlloc": 2200192
+          },
+          "RingBufferV6": {
+            "timeNs": 1279574254,
+            "allocs": 5939,
+            "bytesAlloc": 2540568
+          },
+          "SimpleFanV1": {
+            "timeNs": 6068569971,
+            "allocs": 23691,
+            "bytesAlloc": 84076976
+          },
+          "SimpleFanV2": {
+            "timeNs": 5008246499,
+            "allocs": 20522,
+            "bytesAlloc": 10882248
+          },
+          "SimpleFanV3": {
+            "timeNs": 56363926,
+            "allocs": 2874,
+            "bytesAlloc": 24817320
+          }
         }
       },
       {
         "subscribers": 1000,
         "results": {
-          "RingBufferV6": { "timeNs": 700000000, "allocs": 408, "bytesAlloc": 2900000 },
-          "SimpleFanV1": { "timeNs": 16400000000, "allocs": 488, "bytesAlloc": 4100000000 },
-          "SimpleFanV2": { "timeNs": 8000000000, "allocs": 410, "bytesAlloc": 960000000 },
-          "SimpleFanV3": { "timeNs": 4000000000, "allocs": 409, "bytesAlloc": 600000000 }
+          "FlatBuffersZeroCopy": {
+            "timeNs": 54470,
+            "allocs": 1,
+            "bytesAlloc": 16
+          },
+          "RingBufferEviction": {
+            "timeNs": 120663309,
+            "allocs": 4423,
+            "bytesAlloc": 2312128
+          },
+          "RingBufferV6": {
+            "timeNs": 2516648218,
+            "allocs": 12709,
+            "bytesAlloc": 3066272
+          },
+          "SimpleFanV1": {
+            "timeNs": 15927318709,
+            "allocs": 55720,
+            "bytesAlloc": 168410944
+          },
+          "SimpleFanV2": {
+            "timeNs": 11362012693,
+            "allocs": 51611,
+            "bytesAlloc": 59193536
+          },
+          "SimpleFanV3": {
+            "timeNs": 217422818,
+            "allocs": 7733,
+            "bytesAlloc": 49742752
+          }
         }
       },
       {
         "subscribers": 2000,
         "results": {
-          "RingBufferV6": { "timeNs": 1400000000, "allocs": 408, "bytesAlloc": 2900000 },
-          "SimpleFanV1": { "timeNs": 32800000000, "allocs": 488, "bytesAlloc": 8200000000 },
-          "SimpleFanV2": { "timeNs": 16000000000, "allocs": 410, "bytesAlloc": 1900000000 },
-          "SimpleFanV3": { "timeNs": 8000000000, "allocs": 409, "bytesAlloc": 1200000000 }
+          "FlatBuffersZeroCopy": {
+            "timeNs": 96960,
+            "allocs": 1,
+            "bytesAlloc": 16
+          },
+          "RingBufferEviction": {
+            "timeNs": 558120496,
+            "allocs": 12368,
+            "bytesAlloc": 2858752
+          },
+          "RingBufferV6": {
+            "timeNs": 3909978881,
+            "allocs": 21527,
+            "bytesAlloc": 3803216
+          },
+          "SimpleFanV1": {
+            "timeNs": 29228885936,
+            "allocs": 135174,
+            "bytesAlloc": 440619192
+          },
+          "SimpleFanV2": {
+            "timeNs": 25578888780,
+            "allocs": 90399,
+            "bytesAlloc": 43636408
+          },
+          "SimpleFanV3": {
+            "timeNs": 220084877,
+            "allocs": 9553,
+            "bytesAlloc": 98846992
+          }
         }
       }
     ]

@@ -35,6 +35,42 @@ type FullBenchmarkOutput struct {
 	} `json:"subscribersScaling"`
 }
 
+// perBenchmarkTimeout bounds any single benchmark run so a pathological
+// configuration can never hang the whole experiment (and therefore the SSE
+// stream) indefinitely.
+const perBenchmarkTimeout = 90 * time.Second
+
+// runSingleBenchmarkSafe executes one benchmark with panic recovery and a hard
+// timeout. It never panics and always returns a usable result: on failure it
+// returns a zeroed result plus a human-readable reason. This is what makes the
+// experiment robust — one bad implementation/config degrades gracefully instead
+// of tearing down the connection or crashing the server.
+func runSingleBenchmarkSafe(impl string, trades []*Trade, numSubscribers int) (res BenchmarkResult, ok bool, reason string) {
+	type outcome struct {
+		r      BenchmarkResult
+		reason string
+	}
+	ch := make(chan outcome, 1) // buffered so a timed-out goroutine can still exit cleanly
+	go func() {
+		defer func() {
+			if rec := recover(); rec != nil {
+				ch <- outcome{reason: fmt.Sprintf("panic: %v", rec)}
+			}
+		}()
+		ch <- outcome{r: runSingleBenchmark(impl, trades, numSubscribers)}
+	}()
+
+	select {
+	case o := <-ch:
+		if o.reason != "" {
+			return BenchmarkResult{}, false, o.reason
+		}
+		return o.r, true, ""
+	case <-time.After(perBenchmarkTimeout):
+		return BenchmarkResult{}, false, fmt.Sprintf("timed out after %s", perBenchmarkTimeout)
+	}
+}
+
 // RunExperimentSuite runs the full benchmark suite with customized parameters and logs output.
 func RunExperimentSuite(tradeCounts []int, subscriberCounts []int, logger io.Writer) (FullBenchmarkOutput, error) {
 	fmt.Fprintln(logger, "Initializing experiment runner...")
@@ -55,11 +91,16 @@ func RunExperimentSuite(tradeCounts []int, subscriberCounts []int, logger io.Wri
 			Results: make(map[string]BenchmarkResult),
 		}
 
-		implementations := []string{"SimpleFanV1", "SimpleFanV2", "SimpleFanV3", "RingBufferV6"}
+		implementations := []string{"SimpleFanV1", "SimpleFanV2", "SimpleFanV3", "RingBufferV6", "RingBufferEviction", "FlatBuffersZeroCopy"}
 		for _, impl := range implementations {
-			res := runSingleBenchmark(impl, trades, constSubscribers)
+			fmt.Fprintf(logger, "  %-20s: running...\n", impl)
+			res, ok, reason := runSingleBenchmarkSafe(impl, trades, constSubscribers)
 			point.Results[impl] = res
-			fmt.Fprintf(logger, "  %-12s: %10.2f ms | %10d allocs | %10d bytes\n",
+			if !ok {
+				fmt.Fprintf(logger, "  %-20s: SKIPPED (%s)\n", impl, reason)
+				continue
+			}
+			fmt.Fprintf(logger, "  %-20s: %10.2f ms | %10d allocs | %10d bytes\n",
 				impl, float64(res.TimeNs)/1e6, res.Allocs, res.BytesAlloc)
 		}
 		output.TradesScaling.Points = append(output.TradesScaling.Points, point)
@@ -79,11 +120,16 @@ func RunExperimentSuite(tradeCounts []int, subscriberCounts []int, logger io.Wri
 			Results:     make(map[string]BenchmarkResult),
 		}
 
-		implementations := []string{"SimpleFanV1", "SimpleFanV2", "SimpleFanV3", "RingBufferV6"}
+		implementations := []string{"SimpleFanV1", "SimpleFanV2", "SimpleFanV3", "RingBufferV6", "RingBufferEviction", "FlatBuffersZeroCopy"}
 		for _, impl := range implementations {
-			res := runSingleBenchmark(impl, tradesForSubscribers, sc)
+			fmt.Fprintf(logger, "  %-20s: running...\n", impl)
+			res, ok, reason := runSingleBenchmarkSafe(impl, tradesForSubscribers, sc)
 			point.Results[impl] = res
-			fmt.Fprintf(logger, "  %-12s: %10.2f ms | %10d allocs | %10d bytes\n",
+			if !ok {
+				fmt.Fprintf(logger, "  %-20s: SKIPPED (%s)\n", impl, reason)
+				continue
+			}
+			fmt.Fprintf(logger, "  %-20s: %10.2f ms | %10d allocs | %10d bytes\n",
 				impl, float64(res.TimeNs)/1e6, res.Allocs, res.BytesAlloc)
 		}
 		output.SubscribersScaling.Points = append(output.SubscribersScaling.Points, point)
@@ -166,7 +212,6 @@ func runSingleBenchmark(impl string, trades []*Trade, numSubscribers int) Benchm
 		bufSize := int64(2048)
 		rb := NewRingBufferV6(bufSize, numSubscribers)
 
-		// Map to CompactTrade
 		compactTrades := make([]CompactTrade, len(trades))
 		for idx, t := range trades {
 			var side uint8 = 0
@@ -198,6 +243,66 @@ func runSingleBenchmark(impl string, trades []*Trade, numSubscribers int) Benchm
 				end = len(compactTrades)
 			}
 			rb.PublishBatch(compactTrades[i:end])
+		}
+
+	case "RingBufferEviction":
+		bufSize := int64(2048)
+		rb := NewRingBufferV6(bufSize, numSubscribers)
+		for _, r := range rb.readers {
+			r.blocking = false
+		}
+
+		compactTrades := make([]CompactTrade, len(trades))
+		for idx, t := range trades {
+			var side uint8 = 0
+			if t.ID%2 != 0 {
+				side = 1
+			}
+			compactTrades[idx] = CompactTrade{
+				ID:        t.ID,
+				Price:     ToUSD(t.Price),
+				Quantity:  ToBTC(t.Quantity),
+				Timestamp: t.Timestamp,
+				SymbolID:  0,
+				Side:      side,
+			}
+		}
+
+		for i := 0; i < numSubscribers; i++ {
+			go func(reader *RingBufferReader) {
+				rb.Read(reader, int64(len(compactTrades)), nil, func(ct CompactTrade) {
+					ProcessCompactTrade(ct)
+				})
+				wg.Done()
+			}(rb.readers[i])
+		}
+		batchSize := 128
+		for i := 0; i < len(compactTrades); i += batchSize {
+			end := i + batchSize
+			if end > len(compactTrades) {
+				end = len(compactTrades)
+			}
+			rb.PublishBatchEvicting(compactTrades[i:end])
+		}
+
+	case "FlatBuffersZeroCopy":
+		ct := CompactTrade{
+			ID:        999988,
+			Price:     ToUSD(65432.10),
+			Quantity:  ToBTC(1.5),
+			Timestamp: 1700000000,
+			Sequence:  42,
+			SymbolID:  0,
+			Side:      1,
+		}
+		buf := make([]byte, 38)
+		for i := 0; i < len(trades); i++ {
+			encoded := EncodeFlatTrade(buf, ct)
+			_ = BinaryFlatTrade(encoded).ReadID()
+			_ = BinaryFlatTrade(encoded).ReadPrice()
+		}
+		for i := 0; i < numSubscribers; i++ {
+			wg.Done()
 		}
 	}
 

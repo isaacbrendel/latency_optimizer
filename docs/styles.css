@@ -59,6 +59,107 @@ body {
     margin-bottom: 2.5rem;
 }
 
+/* Stress Test Abstract Card */
+.stress-test-abstract-card {
+    background: #f8fafc;
+    border: 1px solid #1e293b;
+    padding: 1.25rem;
+    margin-top: 1.25rem;
+    margin-bottom: 2rem;
+    font-family: var(--font-sans);
+}
+
+.stress-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+}
+
+.stress-badge {
+    background: #0f172a;
+    color: #ffffff;
+    padding: 0.25rem 0.6rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.stress-status {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #059669;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.pulse-dot {
+    width: 8px;
+    height: 8px;
+    background-color: #10b981;
+    border-radius: 50% !important;
+    display: inline-block;
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(1.2); }
+    100% { opacity: 1; transform: scale(1); }
+}
+
+.stress-metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.75rem;
+    margin-bottom: 0.85rem;
+}
+
+.stress-stat {
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    padding: 0.65rem;
+    text-align: center;
+}
+
+.stat-num {
+    display: block;
+    font-size: 1.25rem;
+    font-weight: 800;
+    font-family: var(--font-mono);
+}
+
+.text-green { color: #059669; }
+.text-blue { color: #2563eb; }
+.text-purple { color: #7c3aed; }
+.text-orange { color: #ea580c; }
+
+.stat-lbl {
+    display: block;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #1e293b;
+    margin-top: 0.15rem;
+}
+
+.stat-sub {
+    display: block;
+    font-size: 0.68rem;
+    color: #64748b;
+    margin-top: 0.1rem;
+}
+
+.stress-notes {
+    font-size: 0.78rem;
+    color: #334155;
+    border-top: 1px solid #cbd5e1;
+    padding-top: 0.5rem;
+    line-height: 1.45;
+}
+
+
 .paper-title-large {
     font-family: var(--font-serif);
     font-size: 1.85rem;

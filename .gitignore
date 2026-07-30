@@ -6,3 +6,4 @@ bot_state.json
 
 # Environment variables & API keys
 .env
+.vercel

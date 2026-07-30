@@ -10,10 +10,11 @@ import (
 // Each subscriber tracks its own progress using readSeq atomically.
 // Cache-line padding is added to prevent false sharing under high contention.
 type RingBufferReader struct {
-	id       int
-	blocking bool
-	readSeq  int64    // atomic sequence pointer
-	_        [47]byte // 47-byte padding to occupy a full 64-byte cache line
+	id           int
+	blocking     bool
+	readSeq      int64    // atomic sequence pointer
+	evictedCount int64    // atomic count of evictions/overruns for slow market data readers
+	_            [39]byte // 39-byte padding to occupy a full 64-byte cache line (8+1+8+8+39 = 64)
 }
 
 // WaitStrategy defines the interface for consumer wait paths.
@@ -54,6 +55,54 @@ func (s *BlockingWaitStrategy) WaitFor(targetSeq int64, currentSeqGetter func() 
 func (s *BlockingWaitStrategy) Signal() {
 	s.condMu.Lock()
 	s.cond.Broadcast()
+	s.condMu.Unlock()
+}
+
+// AdaptiveWaitStrategy spins, yields Gosched, then blocks to prevent thundering herd CPU spikes.
+type AdaptiveWaitStrategy struct {
+	cond   *sync.Cond
+	condMu sync.Mutex
+}
+
+func NewAdaptiveWaitStrategy() *AdaptiveWaitStrategy {
+	aws := &AdaptiveWaitStrategy{}
+	aws.cond = sync.NewCond(&aws.condMu)
+	return aws
+}
+
+func (s *AdaptiveWaitStrategy) WaitFor(targetSeq int64, currentSeqGetter func() int64) int64 {
+	// Phase 1: Fast Spin (50 iterations)
+	for i := 0; i < 50; i++ {
+		curr := currentSeqGetter()
+		if curr >= targetSeq {
+			return curr
+		}
+	}
+	// Phase 2: Yield CPU scheduler (50 iterations)
+	for i := 0; i < 50; i++ {
+		curr := currentSeqGetter()
+		if curr >= targetSeq {
+			return curr
+		}
+		runtime.Gosched()
+	}
+	// Phase 3: Block on condition variable
+	s.condMu.Lock()
+	var finalCurr int64
+	for {
+		finalCurr = currentSeqGetter()
+		if finalCurr >= targetSeq {
+			break
+		}
+		s.cond.Wait()
+	}
+	s.condMu.Unlock()
+	return finalCurr
+}
+
+func (s *AdaptiveWaitStrategy) Signal() {
+	s.condMu.Lock()
+	s.cond.Signal() // Wakes 1 waiter at a time to prevent thundering herd
 	s.condMu.Unlock()
 }
 
@@ -175,6 +224,8 @@ func (rb *RingBufferV6) SetWaitStrategy(strategy string) {
 		rb.waitStrategy = NewYieldingWaitStrategy()
 	case "BusySpin":
 		rb.waitStrategy = NewBusySpinWaitStrategy()
+	case "Adaptive":
+		rb.waitStrategy = NewAdaptiveWaitStrategy()
 	default:
 		rb.waitStrategy = NewBlockingWaitStrategy()
 	}
@@ -196,7 +247,6 @@ func (rb *RingBufferV6) getMinReaderSeq() int64 {
 	}
 	return min
 }
-
 
 // PublishBatch writes a batch of Trades to the RingBuffer by value copy.
 func (rb *RingBufferV6) PublishBatch(trades []CompactTrade) {
@@ -234,6 +284,34 @@ func (rb *RingBufferV6) PublishBatch(trades []CompactTrade) {
 	rb.waitStrategy.Signal()
 }
 
+// PublishBatchEvicting writes trades to the RingBuffer without ever blocking.
+// Non-blocking market data mode: slow consumers who fall behind are automatically evicted/overrun.
+func (rb *RingBufferV6) PublishBatchEvicting(trades []CompactTrade) {
+	seq := atomic.LoadInt64(&rb.writeSeq)
+
+	for _, t := range trades {
+		idx := seq & rb.mask
+		rb.buffer[idx] = t
+		seq++
+	}
+
+	atomic.StoreInt64(&rb.writeSeq, seq)
+
+	// Check if non-blocking readers have fallen behind and evict/skip them forward
+	for _, r := range rb.readers {
+		if !r.blocking {
+			rSeq := atomic.LoadInt64(&r.readSeq)
+			if seq-rSeq > rb.size {
+				// Reader was overrun! Fast forward reader sequence to oldest valid slot in buffer
+				atomic.StoreInt64(&r.readSeq, seq-rb.size)
+				atomic.AddInt64(&r.evictedCount, 1)
+			}
+		}
+	}
+
+	rb.waitStrategy.Signal()
+}
+
 // Read runs the reader loop, processing up to targetCount total trades using a sequence barrier.
 func (rb *RingBufferV6) Read(reader *RingBufferReader, targetCount int64, barrier *SequenceBarrier, process func(CompactTrade)) {
 	readSeq := int64(0)
@@ -257,6 +335,14 @@ func (rb *RingBufferV6) Read(reader *RingBufferReader, targetCount int64, barrie
 			limitSeq = rb.waitStrategy.WaitFor(readSeq+1, limitGetter)
 		}
 
+		// Check if reader was overrun in non-blocking mode
+		if !reader.blocking {
+			currentRSeq := atomic.LoadInt64(&reader.readSeq)
+			if currentRSeq > readSeq {
+				readSeq = currentRSeq // Catch up to skipped position
+			}
+		}
+
 		// Read available trades in a batch
 		for readSeq < limitSeq && readSeq < targetCount {
 			idx := readSeq & rb.mask
@@ -269,3 +355,4 @@ func (rb *RingBufferV6) Read(reader *RingBufferReader, targetCount int64, barrie
 		atomic.StoreInt64(&reader.readSeq, readSeq)
 	}
 }
+

@@ -151,3 +151,181 @@ func BenchmarkRingBufferV6(b *testing.B) {
 		wg.Wait()
 	}
 }
+
+func BenchmarkRingBufferEvicting(b *testing.B) {
+	numSubscribers := 100
+	numTrades := 10000
+	trades := GenerateMockTrades(numTrades)
+	batchSize := 128
+
+	compactTrades := make([]CompactTrade, len(trades))
+	for idx, t := range trades {
+		var side uint8 = 0
+		if t.ID%2 != 0 {
+			side = 1
+		}
+		compactTrades[idx] = CompactTrade{
+			ID:        t.ID,
+			Price:     ToUSD(t.Price),
+			Quantity:  ToBTC(t.Quantity),
+			Timestamp: t.Timestamp,
+			SymbolID:  0,
+			Side:      side,
+		}
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		var wg sync.WaitGroup
+		wg.Add(numSubscribers)
+
+		rb := NewRingBufferV6(1024, numSubscribers)
+		for _, r := range rb.readers {
+			r.blocking = false // Non-blocking eviction mode
+		}
+
+		for s := 0; s < numSubscribers; s++ {
+			go func(reader *RingBufferReader) {
+				rb.Read(reader, int64(numTrades), nil, func(ct CompactTrade) {
+					// consume
+				})
+				wg.Done()
+			}(rb.readers[s])
+		}
+
+		for j := 0; j < len(compactTrades); j += batchSize {
+			end := j + batchSize
+			if end > len(compactTrades) {
+				end = len(compactTrades)
+			}
+			rb.PublishBatchEvicting(compactTrades[j:end])
+		}
+		wg.Wait()
+	}
+}
+
+func BenchmarkFlatBuffersSerialization(b *testing.B) {
+	ct := CompactTrade{
+		ID:        999988,
+		Price:     ToUSD(65432.10),
+		Quantity:  ToBTC(1.5),
+		Timestamp: 1700000000,
+		Sequence:  42,
+		SymbolID:  0,
+		Side:      1,
+	}
+
+	buf := make([]byte, 38)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		encoded := EncodeFlatTrade(buf, ct)
+		_ = BinaryFlatTrade(encoded).ReadID()
+		_ = BinaryFlatTrade(encoded).ReadPrice()
+	}
+}
+
+// BenchmarkStressTest100K runs a high-load stress test with 100,000 trades under non-blocking eviction mode.
+func BenchmarkStressTest100K(b *testing.B) {
+	numSubscribers := 500
+	numTrades := 100000
+	trades := GenerateMockTrades(numTrades)
+	batchSize := 256
+
+	compactTrades := make([]CompactTrade, len(trades))
+	for idx, t := range trades {
+		var side uint8 = 0
+		if t.ID%2 != 0 {
+			side = 1
+		}
+		compactTrades[idx] = CompactTrade{
+			ID:        t.ID,
+			Price:     ToUSD(t.Price),
+			Quantity:  ToBTC(t.Quantity),
+			Timestamp: t.Timestamp,
+			Sequence:  uint16(idx % 65535),
+			SymbolID:  0,
+			Side:      side,
+		}
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		var wg sync.WaitGroup
+		wg.Add(numSubscribers)
+
+		rb := NewRingBufferV6(2048, numSubscribers)
+		for _, r := range rb.readers {
+			r.blocking = false
+		}
+
+		for s := 0; s < numSubscribers; s++ {
+			go func(reader *RingBufferReader) {
+				rb.Read(reader, int64(numTrades), nil, func(ct CompactTrade) {
+					// stress processing loop
+				})
+				wg.Done()
+			}(rb.readers[s])
+		}
+
+		for j := 0; j < len(compactTrades); j += batchSize {
+			end := j + batchSize
+			if end > len(compactTrades) {
+				end = len(compactTrades)
+			}
+			rb.PublishBatchEvicting(compactTrades[j:end])
+		}
+		wg.Wait()
+	}
+}
+
+// BenchmarkHighSubscriberStress2000 runs extreme subscriber scaling (2,000 concurrent subscribers).
+func BenchmarkHighSubscriberStress2000(b *testing.B) {
+	numSubscribers := 2000
+	numTrades := 50000
+	trades := GenerateMockTrades(numTrades)
+	batchSize := 256
+
+	compactTrades := make([]CompactTrade, len(trades))
+	for idx, t := range trades {
+		compactTrades[idx] = CompactTrade{
+			ID:        t.ID,
+			Price:     ToUSD(t.Price),
+			Quantity:  ToBTC(t.Quantity),
+			Timestamp: t.Timestamp,
+			Sequence:  uint16(idx % 65535),
+			SymbolID:  0,
+			Side:      0,
+		}
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		var wg sync.WaitGroup
+		wg.Add(numSubscribers)
+
+		rb := NewRingBufferV6(2048, numSubscribers)
+		for _, r := range rb.readers {
+			r.blocking = false
+		}
+
+		for s := 0; s < numSubscribers; s++ {
+			go func(reader *RingBufferReader) {
+				rb.Read(reader, int64(numTrades), nil, func(ct CompactTrade) {
+					// stress processing loop
+				})
+				wg.Done()
+			}(rb.readers[s])
+		}
+
+		for j := 0; j < len(compactTrades); j += batchSize {
+			end := j + batchSize
+			if end > len(compactTrades) {
+				end = len(compactTrades)
+			}
+			rb.PublishBatchEvicting(compactTrades[j:end])
+		}
+		wg.Wait()
+	}
+}
+
+

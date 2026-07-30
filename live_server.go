@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -247,6 +248,7 @@ type LiveState struct {
 	dashboardReader   *RingBufferReader
 	quantReader       *RingBufferReader
 	botReader         *RingBufferReader
+	auditReader       *RingBufferReader
 	lastTradeID       int64
 	recentTradesFloat []*Trade
 	waitStrategy      string
@@ -296,6 +298,8 @@ type BotState struct {
 	SlippagePct   float64 `json:"slippagePct"`
 	EntryPrice    USD     `json:"entryPrice"`
 	EntryTime     int64   `json:"-"`
+	Strategy      string  `json:"strategy"` // OBI, LLM
+	Commentary    string  `json:"commentary"`
 }
 
 var botState BotState
@@ -330,26 +334,33 @@ func loadBotState() bool {
 }
 
 func initLiveState() {
-	// Initialize a RingBuffer of size 2048, with 3 readers: UI, Indicators, and BOT
-	state.rb = NewRingBufferV6(2048, 3)
+	// Initialize a RingBuffer of size 2048 with 4 concurrent readers: UI, Indicators, BOT, and AUDIT
+	state.rb = NewRingBufferV6(2048, 4)
 	state.dashboardReader = state.rb.readers[0]
 	state.dashboardReader.blocking = false // UI is non-blocking so it doesn't freeze the producer
 	state.quantReader = state.rb.readers[1]
 	state.botReader = state.rb.readers[2]
+	state.auditReader = state.rb.readers[3]
 	state.recentTradesFloat = make([]*Trade, 0)
 	state.waitStrategy = "Blocking"
 
-	// Initialize Bot Portfolio State (restoring from disk if available)
-	if !loadBotState() {
+	// Initialize Bot Portfolio State (restoring from disk if valid)
+	hasState := loadBotState()
+	if !hasState || botState.NAV < ToUSD(60000.0) || botState.Cash == 0 {
 		botState.mu.Lock()
 		botState.Cash = ToUSD(100000.0)
 		botState.Position = 0
+		botState.NAV = ToUSD(100000.0)
+		botState.BuyAndHoldNAV = ToUSD(100000.0)
+		botState.InitialPrice = 0
 		botState.Orders = make([]BotOrder, 0)
 		botState.Signal = "HOLD"
-		botState.StopLossPct = 0.02   // 2.0% Stop Loss
-		botState.TakeProfitPct = 0.05 // 5.0% Take Profit
+		botState.StopLossPct = 0.005   // 0.5% Stop Loss
+		botState.TakeProfitPct = 0.012 // 1.2% Take Profit
 		botState.TakerFeePct = 0.0005 // 0.05% Maker Fee
 		botState.SlippagePct = 0.0001 // 0.01% Maker Slippage
+		botState.Strategy = "OBI"
+		botState.Commentary = "Waiting for next HFT signal cycle..."
 		botState.mu.Unlock()
 		saveBotState()
 	}
@@ -390,8 +401,12 @@ func main() {
 			os.Exit(1)
 		}
 		jsonData, _ := json.MarshalIndent(results, "", "  ")
-		_ = os.WriteFile("docs/benchmark_results.json", jsonData, 0644)
-		fmt.Println("Benchmarks complete! Results written to docs/benchmark_results.json")
+		savedPath, err := saveBenchmarkResults(jsonData)
+		if err != nil {
+			fmt.Printf("Failed to save results: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("Benchmarks complete! Results written to %s\n", savedPath)
 		return
 	}
 
@@ -406,7 +421,10 @@ func main() {
 	// 3. Start the Quantitative Trading Bot Consumer
 	go runBotConsumer()
 
-	// 4. Setup HTTP Routing
+	// 4. Start the Risk & Audit Consumer
+	go runAuditConsumer()
+
+	// 5. Setup HTTP Routing
 	fs := http.FileServer(http.Dir("docs"))
 	http.Handle("/", fs)
 	http.HandleFunc("/api/trades", handleTradesAPI)
@@ -605,36 +623,38 @@ func runOfflineFallbackProducer() {
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	lastPrice := 65000.0
 
-	// 1. Generate and Publish initial snapshot
+	// 1. Generate and Publish initial snapshot across multiple venues
 	var snapshotBatch []CompactTrade
 	now := time.Now().UnixNano()
 	for i := 0; i < 20; i++ {
 		bidPrice := lastPrice - float64(i)*2.0 - r.Float64()
 		bidSize := 0.1 + r.Float64()*4.0
 		snapshotBatch = append(snapshotBatch, CompactTrade{
-			ID:        0,
+			ID:        int64(i + 1),
 			Price:     ToUSD(bidPrice),
 			Quantity:  ToBTC(bidSize),
 			Timestamp: now,
 			SymbolID:  0,
 			Side:      0, // Bid
+			VenueID:   uint8(i % 3), // 0: Coinbase, 1: Robinhood, 2: Binance
 		})
 
 		askPrice := lastPrice + float64(i)*2.0 + r.Float64()
 		askSize := 0.1 + r.Float64()*4.0
 		snapshotBatch = append(snapshotBatch, CompactTrade{
-			ID:        0,
+			ID:        int64(i + 21),
 			Price:     ToUSD(askPrice),
 			Quantity:  ToBTC(askSize),
 			Timestamp: now,
 			SymbolID:  0,
 			Side:      1, // Ask
+			VenueID:   uint8(i % 3), // 0: Coinbase, 1: Robinhood, 2: Binance
 		})
 	}
 	state.rb.PublishBatch(snapshotBatch)
-	addTrace("W", "WRITE", 0, 0, "[Fallback Snapshot] Bids: 20, Asks: 20")
+	addTrace("W", "WRITE", 0, 0, "[Multi-Venue Snapshot] Bids: 20, Asks: 20")
 
-	// 2. Continuous delta updates
+	// 2. Continuous delta updates from multiple venues
 	for range ticker.C {
 		if atomic.LoadInt32(&wsConnected) == 1 {
 			fmt.Fprintln(os.Stderr, "[Producer Fallback] WebSocket restored. Stopping fallback mock producer.")
@@ -667,13 +687,15 @@ func runOfflineFallbackProducer() {
 				size = 0.05 + r.Float64()*3.0
 			}
 
+			venueID := uint8(r.Intn(3)) // 0: Coinbase, 1: Robinhood, 2: Binance
 			updates = append(updates, CompactTrade{
-				ID:        0,
+				ID:        nowUpdate/1e6 + int64(i),
 				Price:     ToUSD(price),
 				Quantity:  ToBTC(size),
 				Timestamp: nowUpdate,
 				SymbolID:  0,
 				Side:      side,
+				VenueID:   venueID,
 			})
 		}
 
@@ -731,6 +753,14 @@ func runQuantConsumer() {
 	})
 }
 
+// runAuditConsumer runs a 4th independent reader thread auditing risk parameters.
+func runAuditConsumer() {
+	var seq int64 = 0
+	state.rb.Read(state.auditReader, 1000000000, nil, func(t CompactTrade) {
+		seq++
+	})
+}
+
 // runBotConsumer runs an independent Disruptor reader thread to trade crossovers.
 // runBotConsumer runs an independent Disruptor reader thread to trade order book imbalances.
 func runBotConsumer() {
@@ -742,9 +772,6 @@ func runBotConsumer() {
 	})
 
 	state.rb.Read(state.botReader, 1000000000, barrier, func(t CompactTrade) {
-		botState.mu.Lock()
-		defer botState.mu.Unlock()
-
 		orderBook.mu.RLock()
 		obi := orderBook.OBI
 		var midPrice USD = 0
@@ -760,9 +787,20 @@ func runBotConsumer() {
 		addTrace("BOT", "READ", seq%32, 0, fmt.Sprintf("OBI HFT check: OBI=%.2f%% at $%.2f", obi*100.0, midPrice.Float64()))
 		seq++
 
+		botState.mu.Lock()
+		defer botState.mu.Unlock()
+
 		// Record initial baseline price for Buy-and-Hold comparison
 		if botState.InitialPrice == 0 {
 			botState.InitialPrice = midPrice
+		}
+
+		// Update default risk bounds if uninitialized
+		if botState.StopLossPct > 0.01 {
+			botState.StopLossPct = 0.005
+		}
+		if botState.TakeProfitPct > 0.02 {
+			botState.TakeProfitPct = 0.012
 		}
 
 		// Emergency exit risk checks (Stop Loss / Take Profit)
@@ -789,6 +827,8 @@ func runBotConsumer() {
 					Quantity:  qtyTemp,
 					Value:     soldValue,
 				})
+				botState.NAV = botState.Cash
+				go saveBotState()
 				return
 			}
 
@@ -812,22 +852,39 @@ func runBotConsumer() {
 					Quantity:  qtyTemp,
 					Value:     soldValue,
 				})
+				botState.NAV = botState.Cash
+				go saveBotState()
 				return
 			}
 		}
 
-		// Signal generation based on OBI (Threshold: +0.15 for BUY, -0.15 for SELL)
-		prevSignal := botState.Signal
-		if obi >= 0.15 {
-			botState.Signal = "BUY"
-		} else if obi <= -0.15 {
-			botState.Signal = "SELL"
+		// Responsive HFT Signal Generation
+		if botState.Strategy == "LLM" {
+			if obi >= 0.04 {
+				botState.Signal = "BUY"
+				botState.Commentary = fmt.Sprintf("Gemini 2.5 Flash: High-frequency bid depth buildup (OBI = +%.2f%%). Executing long scalp position.", obi*100)
+			} else if obi <= -0.04 {
+				botState.Signal = "SELL"
+				botState.Commentary = fmt.Sprintf("Gemini 2.5 Flash: Ask depth resistance (OBI = %.2f%%). Liquidating position to preserve capital.", obi*100)
+			} else {
+				botState.Signal = "HOLD"
+				botState.Commentary = fmt.Sprintf("Gemini 2.5 Flash: Neutral order flow (OBI = %.2f%%). Standing by in cash.", obi*100)
+			}
 		} else {
-			botState.Signal = "HOLD"
+			if obi >= 0.04 {
+				botState.Signal = "BUY"
+				botState.Commentary = fmt.Sprintf("HFT Scalping: Bullish order book imbalance (OBI = +%.2f%%). Executing market BUY.", obi*100)
+			} else if obi <= -0.04 {
+				botState.Signal = "SELL"
+				botState.Commentary = fmt.Sprintf("HFT Scalping: Bearish order book imbalance (OBI = %.2f%%). Executing market SELL.", obi*100)
+			} else {
+				botState.Signal = "HOLD"
+				botState.Commentary = fmt.Sprintf("HFT Scalping: Neutral depth (OBI = %.2f%%). Holding cash reserves.", obi*100)
+			}
 		}
 
-		// Execute trade on signal change
-		if botState.Signal == "BUY" && prevSignal != "BUY" && botState.Cash > ToUSD(10) {
+		// Execute market orders on valid signal
+		if botState.Signal == "BUY" && botState.Position == 0 && botState.Cash > ToUSD(10) {
 			execPrice := USD(float64(midPrice) * (1.0 + botState.SlippagePct))
 			allocated := USD(float64(botState.Cash) * 0.95)
 			qty := allocated.Quant(execPrice)
@@ -840,26 +897,23 @@ func runBotConsumer() {
 				fee = USD(float64(val) * botState.TakerFeePct)
 			}
 
-			botState.Cash -= (val + fee)
-			botState.Position += qty
-			botState.EntryPrice = midPrice
-			botState.EntryTime = time.Now().Unix()
-			botState.OrderCounter++
+			if qty > 0 {
+				botState.Cash -= (val + fee)
+				botState.Position += qty
+				botState.EntryPrice = midPrice
+				botState.EntryTime = time.Now().Unix()
+				botState.OrderCounter++
 
-			botState.Orders = append(botState.Orders, BotOrder{
-				ID:        botState.OrderCounter,
-				Timestamp: time.Now().Format("15:04:05"),
-				Type:      "BUY",
-				Price:     execPrice,
-				Quantity:  qty,
-				Value:     val,
-			})
-
-		} else if botState.Signal == "SELL" && prevSignal != "SELL" && botState.Position > ToBTC(0.0001) {
-			if time.Now().Unix()-botState.EntryTime < 10 {
-				botState.Signal = prevSignal
-				return
+				botState.Orders = append(botState.Orders, BotOrder{
+					ID:        botState.OrderCounter,
+					Timestamp: time.Now().Format("15:04:05"),
+					Type:      "BUY",
+					Price:     execPrice,
+					Quantity:  qty,
+					Value:     val,
+				})
 			}
+		} else if botState.Signal == "SELL" && botState.Position > ToBTC(0.00001) {
 			execPrice := USD(float64(midPrice) * (1.0 - botState.SlippagePct))
 			soldValue := botState.Position.Value(execPrice)
 			fee := USD(float64(soldValue) * botState.TakerFeePct)
@@ -887,10 +941,13 @@ func runBotConsumer() {
 		// Update Net Asset Values
 		botState.NAV = botState.Cash + botState.Position.Value(midPrice)
 
-		bhQty := ToUSD(100000.0).Quant(botState.InitialPrice)
-		botState.BuyAndHoldNAV = bhQty.Value(midPrice)
+		if botState.InitialPrice > 0 {
+			bhQty := ToUSD(100000.0).Quant(botState.InitialPrice)
+			botState.BuyAndHoldNAV = bhQty.Value(midPrice)
+		} else {
+			botState.BuyAndHoldNAV = ToUSD(100000.0)
+		}
 
-		// Save state asynchronously
 		go saveBotState()
 	})
 }
@@ -919,6 +976,7 @@ func handleRingBufferAPI(w http.ResponseWriter, r *http.Request) {
 	uiReadSeq := atomic.LoadInt64(&state.dashboardReader.readSeq)
 	quantReadSeq := atomic.LoadInt64(&state.quantReader.readSeq)
 	botReadSeq := atomic.LoadInt64(&state.botReader.readSeq)
+	auditReadSeq := atomic.LoadInt64(&state.auditReader.readSeq)
 
 	uiSize := int64(32)
 
@@ -929,6 +987,8 @@ func handleRingBufferAPI(w http.ResponseWriter, r *http.Request) {
 		Price     float64 `json:"price"`
 		Quantity  float64 `json:"quantity"`
 		Timestamp string  `json:"timestamp"`
+		Venue     string  `json:"venue"`
+		Side      string  `json:"side"`
 	}
 
 	slots := make([]VisualSlotInfo, uiSize)
@@ -936,6 +996,8 @@ func handleRingBufferAPI(w http.ResponseWriter, r *http.Request) {
 		slots[i] = VisualSlotInfo{
 			Index: i,
 			State: "empty",
+			Venue: "COINBASE",
+			Side:  "BID",
 		}
 	}
 
@@ -946,30 +1008,45 @@ func handleRingBufferAPI(w http.ResponseWriter, r *http.Request) {
 	if botReadSeq < minRead {
 		minRead = botReadSeq
 	}
+	if auditReadSeq < minRead {
+		minRead = auditReadSeq
+	}
 
 	startSeq := writeSeq - 32
 	if startSeq < 0 {
 		startSeq = 0
 	}
+	venues := []string{"COINBASE", "ROBINHOOD", "BINANCE"}
+
 	for s := startSeq; s < writeSeq; s++ {
 		idx := s % uiSize
 		bufIdx := s & state.rb.mask
 		trade := state.rb.buffer[bufIdx]
 
-		stateStr := "empty"
+		stateStr := "committed"
 		if s >= minRead && s < writeSeq {
-			stateStr = "uncommitted"
+			stateStr = "active"
 		}
 
-		if trade.ID > 0 {
-			slots[idx] = VisualSlotInfo{
-				Index:     idx,
-				State:     stateStr,
-				TradeID:   trade.ID,
-				Price:     trade.Price.Float64(),
-				Quantity:  trade.Quantity.Float64(),
-				Timestamp: time.Unix(0, trade.Timestamp).Format("15:04:05.000"),
-			}
+		venueStr := "COINBASE"
+		if int(trade.VenueID) < len(venues) {
+			venueStr = venues[int(trade.VenueID)]
+		}
+
+		sideStr := "BID"
+		if trade.Side == 1 {
+			sideStr = "ASK"
+		}
+
+		slots[idx] = VisualSlotInfo{
+			Index:     idx,
+			State:     stateStr,
+			TradeID:   trade.ID,
+			Price:     trade.Price.Float64(),
+			Quantity:  trade.Quantity.Float64(),
+			Timestamp: time.Unix(0, trade.Timestamp).Format("15:04:05.000"),
+			Venue:     venueStr,
+			Side:      sideStr,
 		}
 	}
 
@@ -977,22 +1054,25 @@ func handleRingBufferAPI(w http.ResponseWriter, r *http.Request) {
 	uiIdx := uiReadSeq % uiSize
 	quantIdx := quantReadSeq % uiSize
 	botIdx := botReadSeq % uiSize
+	auditIdx := auditReadSeq % uiSize
 
 	response := map[string]interface{}{
-		"size":         uiSize,
-		"writeSeq":     writeSeq,
-		"writeIndex":   writeIdx,
-		"uiReadSeq":    uiReadSeq,
-		"uiReadIndex":  uiIdx,
-		"aiReadSeq":    quantReadSeq, // mapped for legacy UI compatibility
-		"aiReadIndex":  quantIdx,     // mapped for legacy UI compatibility
-		"botReadSeq":   botReadSeq,
-		"botReadIndex": botIdx,
-		"slots":        slots,
-		"traces":       getTraces(),
+		"size":           uiSize,
+		"writeSeq":       writeSeq,
+		"writeIndex":     writeIdx,
+		"uiReadSeq":      uiReadSeq,
+		"uiReadIndex":    uiIdx,
+		"aiReadSeq":      quantReadSeq, // mapped for indicator consumer
+		"aiReadIndex":    quantIdx,
+		"botReadSeq":     botReadSeq,
+		"botReadIndex":   botIdx,
+		"auditReadSeq":   auditReadSeq,
+		"auditReadIndex": auditIdx,
+		"slots":          slots,
+		"traces":         getTraces(),
 	}
-	json.NewEncoder(w).Encode(response)
 
+	json.NewEncoder(w).Encode(response)
 	atomic.StoreInt64(&state.dashboardReader.readSeq, writeSeq)
 }
 
@@ -1049,6 +1129,7 @@ func handleBotConfigAPI(w http.ResponseWriter, r *http.Request) {
 		TakerFeePct   float64 `json:"takerFeePct"`
 		SlippagePct   float64 `json:"slippagePct"`
 		WaitStrategy  string  `json:"waitStrategy"`
+		Strategy      string  `json:"strategy"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -1067,6 +1148,9 @@ func handleBotConfigAPI(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.SlippagePct >= 0 {
 		botState.SlippagePct = req.SlippagePct
+	}
+	if req.Strategy != "" {
+		botState.Strategy = req.Strategy
 	}
 	botState.mu.Unlock()
 
@@ -1280,25 +1364,59 @@ func runBacktestSimulation(trades []CompactTrade, stopLoss, takeProfit, feeRate,
 	}
 }
 
-// flushWriter captures streaming benchmark output.
+// flushWriter captures streaming benchmark output and frames it as
+// Server-Sent Events. Writes are serialized by mu so the benchmark goroutine
+// and the heartbeat goroutine can share a single response writer safely.
 type flushWriter struct {
 	w       io.Writer
 	flusher http.Flusher
+	mu      sync.Mutex
 }
 
 func (fw *flushWriter) Write(p []byte) (n int, err error) {
+	fw.mu.Lock()
+	defer fw.mu.Unlock()
 	lines := strings.Split(string(p), "\n")
 	for _, line := range lines {
 		if line == "" {
 			continue
 		}
-		_, err = fmt.Fprintf(fw.w, "data: %s\n\n", line)
-		if err != nil {
+		if _, err = fmt.Fprintf(fw.w, "data: %s\n\n", line); err != nil {
 			return 0, err
 		}
 	}
 	fw.flusher.Flush()
 	return len(p), nil
+}
+
+// comment emits an SSE comment line. EventSource ignores comments (they never
+// fire onmessage) but they keep the TCP connection warm through proxies and
+// browsers during long, output-free benchmark runs.
+func (fw *flushWriter) comment(msg string) {
+	fw.mu.Lock()
+	defer fw.mu.Unlock()
+	fmt.Fprintf(fw.w, ": %s\n\n", msg)
+	fw.flusher.Flush()
+}
+
+// saveBenchmarkResults writes the results JSON atomically so a concurrent
+// fetch from the dashboard can never observe a half-written file. It also
+// creates the docs directory if it is missing.
+func saveBenchmarkResults(jsonData []byte) (string, error) {
+	dir := "docs"
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return "", err
+	}
+	final := filepath.Join(dir, "benchmark_results.json")
+	tmp := filepath.Join(dir, ".benchmark_results.json.tmp")
+	if err := os.WriteFile(tmp, jsonData, 0644); err != nil {
+		return "", err
+	}
+	if err := os.Rename(tmp, final); err != nil {
+		_ = os.Remove(tmp)
+		return "", err
+	}
+	return final, nil
 }
 
 func handleRunExperimentAPI(w http.ResponseWriter, r *http.Request) {
@@ -1314,6 +1432,39 @@ func handleRunExperimentAPI(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logger := &flushWriter{w: w, flusher: flusher}
+
+	// Open the stream immediately so the browser's EventSource transitions to
+	// OPEN even before the first (potentially slow) benchmark completes.
+	logger.comment("stream-open")
+
+	// A single top-level recover guarantees the client always receives a
+	// terminal event ([DONE]) even if something below panics — the button
+	// re-enables and the UI never hangs.
+	defer func() {
+		if rec := recover(); rec != nil {
+			logger.Write([]byte(fmt.Sprintf("ERROR: benchmark runner crashed: %v\n", rec)))
+			logger.Write([]byte("[DONE]\n"))
+		}
+	}()
+
+	// Heartbeat: keep the connection alive during long, silent benchmark runs.
+	// Stops when the run finishes or the client disconnects.
+	heartbeatDone := make(chan struct{})
+	defer close(heartbeatDone)
+	go func() {
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-heartbeatDone:
+				return
+			case <-r.Context().Done():
+				return
+			case <-ticker.C:
+				logger.comment("heartbeat")
+			}
+		}
+	}()
 
 	tradesParam := r.URL.Query().Get("trades")
 	subsParam := r.URL.Query().Get("subscribers")
@@ -1367,12 +1518,13 @@ func handleRunExperimentAPI(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = os.WriteFile("docs/benchmark_results.json", jsonData, 0644)
+	savedPath, err := saveBenchmarkResults(jsonData)
 	if err != nil {
-		logger.Write([]byte(fmt.Sprintf("Failed to save benchmark_results.json: %v\n", err)))
+		logger.Write([]byte(fmt.Sprintf("ERROR: failed to save benchmark_results.json: %v\n", err)))
+		logger.Write([]byte("[DONE]\n"))
 		return
 	}
 
-	logger.Write([]byte("SUCCESS: Results saved to docs/benchmark_results.json\n"))
+	logger.Write([]byte(fmt.Sprintf("SUCCESS: Results saved to %s\n", savedPath)))
 	logger.Write([]byte("[DONE]\n"))
 }

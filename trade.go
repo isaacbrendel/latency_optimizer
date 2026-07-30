@@ -116,16 +116,20 @@ func (u USD) Quant(price USD) BTC {
 	return BTC((int64(u) * BTCScale) / int64(price))
 }
 
-// CompactTrade represents a pointerless, flat trade record.
+// CompactTrade represents a pointerless, flat trade record optimized for 64-bit CPU alignment.
 // Storing this struct by value inside the Ring Buffer avoids heap allocations and GC scan overhead.
-// For L2 updates, ID is set to 0, Side is 0 (Bid) or 1 (Ask), and Quantity is 0 if deleted.
+// Fields are ordered strictly by size: 4 x int64 (32 bytes), 1 x uint16 (2 bytes), 4 x uint8 (4 bytes) = 38 bytes payload.
+// With Go's 8-byte alignment rule, total struct size is EXACTLY 40 bytes (utilizing compiler padding).
 type CompactTrade struct {
-	ID        int64
-	Price     USD
-	Quantity  BTC
-	Timestamp int64
-	SymbolID  uint8 // 0: BTC-USD, etc.
-	Side      uint8 // 0: BUY/Bid, 1: SELL/Ask
+	ID        int64  // 8 bytes (Offset 0)
+	Price     USD    // 8 bytes (Offset 8)
+	Quantity  BTC    // 8 bytes (Offset 16)
+	Timestamp int64  // 8 bytes (Offset 24)
+	Sequence  uint16 // 2 bytes (Offset 32) - Monotonic feed sequence
+	SymbolID  uint8  // 1 byte  (Offset 34) - 0: BTC-USD, 1: ETH-USD
+	Side      uint8  // 1 byte  (Offset 35) - 0: BUY/Bid, 1: SELL/Ask
+	Flags     uint8  // 1 byte  (Offset 36) - Bit 0: IsSnapshot, Bit 1: Aggregated
+	VenueID   uint8  // 1 byte  (Offset 37) - 0: Coinbase, 1: Robinhood
 }
 
 // CoinbaseL2Snapshot represents the initial full order book snapshot from Coinbase WS.
