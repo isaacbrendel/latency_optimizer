@@ -1,6 +1,11 @@
 {
   "version": 2,
   "cleanUrls": true,
-  "buildCommand": "echo 'Static build ready'",
-  "outputDirectory": "docs"
+  "rewrites": [
+    { "source": "/api/orderbook", "destination": "/api/orderbook/orderbook" },
+    { "source": "/api/ring-buffer", "destination": "/api/ring-buffer/ringbuffer" },
+    { "source": "/api/sentiment", "destination": "/api/sentiment/sentiment" },
+    { "source": "/api/run-experiment", "destination": "/api/run-experiment/runexperiment" },
+    { "source": "/(.*)", "destination": "/docs/$1" }
+  ]
 }
