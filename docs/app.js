@@ -1096,16 +1096,16 @@ async function pollRingBufferState() {
         return;
     }
     try {
-        const response = await fetch(getApiUrl('/api/ringbuffer'));
+        const response = await fetch(getApiUrl('/api/ring-buffer'));
         if (!response.ok) return;
         const data = await response.json();
 
         renderMultiConsumerSlots(
-            data.slots,
+            data.slots || [],
             data.writeSeq || 0,
-            data.botReadSeq || 0,
-            data.aiReadSeq || 0,
-            data.auditReadSeq || 0,
+            data.botSeq || data.botReadSeq || 0,
+            data.aiSeq || data.aiReadSeq || 0,
+            data.auditSeq || data.auditReadSeq || 0,
             data.evictedCount || 0
         );
 
@@ -1137,30 +1137,34 @@ async function pollCoinbaseFeed() {
         return;
     }
     try {
-        const response = await fetch(getApiUrl('/api/trades'));
+        const response = await fetch(getApiUrl('/api/orderbook'));
         if (!response.ok) return;
-        const trades = await response.json();
+        const data = await response.json();
+        const trades = data.trades || [];
 
         const tbody = document.querySelector('#live-trades-table tbody');
         if (!tbody) return;
 
-        if (trades.length === 0) {
+        if (!trades || trades.length === 0) {
             tbody.innerHTML = `<tr><td colspan="4" style="text-align: center;">Polling multi-venue transaction stream...</td></tr>`;
             return;
         }
-        latestPrice = trades[trades.length - 1].Price;
+        latestPrice = trades[trades.length - 1].Price || trades[trades.length - 1].price || 0;
 
         tbody.innerHTML = '';
         const recent = trades.slice(-10).reverse();
         const venueNames = ["CB", "RH", "BN"];
         recent.forEach((t, i) => {
-            const venue = venueNames[i % 3];
+            const venue = t.Exchange || t.exchange || venueNames[i % 3];
+            const price = Number(t.Price || t.price || 0);
+            const qty = Number(t.Quantity || t.quantity || 0);
+            const id = t.ID || t.id || i + 1;
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td style="font-weight: bold; color: #333;">${venue}</td>
-                <td>${t.ID}</td>
-                <td>$${t.Price.toFixed(2)}</td>
-                <td>${t.Quantity.toFixed(8)}</td>
+                <td>${id}</td>
+                <td>$${price.toFixed(2)}</td>
+                <td>${qty.toFixed(8)}</td>
             `;
             tbody.appendChild(row);
         });
@@ -1177,33 +1181,37 @@ async function pollGeminiSentiment() {
     try {
         const response = await fetch(getApiUrl('/api/orderbook'));
         if (!response.ok) return;
-        const data = await response.json();
+        const rawData = await response.json();
+        const ob = rawData.orderBook || rawData;
+        const obiVal = (ob && ob.obi !== undefined && ob.obi !== null) ? Number(ob.obi) : 0;
+        const spreadFloat = (ob && ob.spread !== undefined && ob.spread !== null) ? Number(ob.spread) : 0;
+        const topBids = (ob && ob.topBids) ? ob.topBids : [];
+        const topAsks = (ob && ob.topAsks) ? ob.topAsks : [];
 
         // 1. Update OBI Gauge
-        const obiPct = (data.obi * 100).toFixed(2);
-        document.getElementById('ind-obi').innerText = (data.obi >= 0 ? '+' : '') + obiPct + '%';
+        const obiPct = (obiVal * 100).toFixed(2);
+        document.getElementById('ind-obi').innerText = (obiVal >= 0 ? '+' : '') + obiPct + '%';
         
         const barEl = document.getElementById('obi-bar');
         if (barEl) {
-            if (data.obi >= 0) {
+            if (obiVal >= 0) {
                 barEl.style.marginLeft = '50%';
-                barEl.style.width = `${data.obi * 50}%`;
-                barEl.style.backgroundColor = '#137333'; // Green for buy pressure
+                barEl.style.width = `${obiVal * 50}%`;
+                barEl.style.backgroundColor = '#137333';
             } else {
-                const widthPct = Math.abs(data.obi) * 50;
+                const widthPct = Math.abs(obiVal) * 50;
                 barEl.style.marginLeft = `${50 - widthPct}%`;
                 barEl.style.width = `${widthPct}%`;
-                barEl.style.backgroundColor = '#c5221f'; // Red for sell pressure
+                barEl.style.backgroundColor = '#c5221f';
             }
         }
 
         // 2. Update Spread & Mid Price
-        const spreadFloat = data.spread;
         document.getElementById('ind-spread').innerText = '$' + spreadFloat.toFixed(2);
         
-        let midPrice = 0;
-        if (data.topBids && data.topBids.length > 0 && data.topAsks && data.topAsks.length > 0) {
-            midPrice = (data.topBids[0].price + data.topAsks[0].price) / 2;
+        let midPrice = rawData.midPrice ? Number(rawData.midPrice) : 0;
+        if (!midPrice && topBids.length > 0 && topAsks.length > 0) {
+            midPrice = (topBids[0].price + topAsks[0].price) / 2;
         }
         document.getElementById('ind-mid').innerText = '$' + midPrice.toFixed(2);
         latestPrice = midPrice;
@@ -1215,13 +1223,13 @@ async function pollGeminiSentiment() {
         const bidsBody = document.querySelector('#obi-bids-table tbody');
         if (bidsBody) {
             bidsBody.innerHTML = '';
-            const top5Bids = data.topBids ? data.topBids.slice(0, 5) : [];
+            const top5Bids = topBids.slice(0, 5);
             if (top5Bids.length === 0) {
                 bidsBody.innerHTML = '<tr><td colspan="2" style="text-align: center; color: #888;">Empty Book</td></tr>';
             } else {
                 top5Bids.forEach(b => {
-                    const priceUSD = b.price;
-                    const sizeBTC = b.size;
+                    const priceUSD = Number(b.price || 0);
+                    const sizeBTC = Number(b.size || 0);
                     const row = document.createElement('tr');
                     row.innerHTML = `
                         <td style="padding: 2px 4px; color: #555; text-align: left;">${sizeBTC.toFixed(4)}</td>
@@ -1236,13 +1244,13 @@ async function pollGeminiSentiment() {
         const asksBody = document.querySelector('#obi-asks-table tbody');
         if (asksBody) {
             asksBody.innerHTML = '';
-            const top5Asks = data.topAsks ? data.topAsks.slice(0, 5) : [];
+            const top5Asks = topAsks.slice(0, 5);
             if (top5Asks.length === 0) {
                 asksBody.innerHTML = '<tr><td colspan="2" style="text-align: center; color: #888;">Empty Book</td></tr>';
             } else {
                 top5Asks.forEach(a => {
-                    const priceUSD = a.price;
-                    const sizeBTC = a.size;
+                    const priceUSD = Number(a.price || 0);
+                    const sizeBTC = Number(a.size || 0);
                     const row = document.createElement('tr');
                     row.innerHTML = `
                         <td style="padding: 2px 4px; color: #c5221f; font-weight: bold; text-align: right;">${priceUSD.toFixed(2)}</td>
@@ -1255,9 +1263,9 @@ async function pollGeminiSentiment() {
 
         // Update live chart datasets in real-time
         const nowStr = new Date().toLocaleTimeString();
-        if (midPrice > 0 && data.topBids && data.topBids.length > 0 && data.topAsks && data.topAsks.length > 0) {
-            const bestBid = data.topBids[0].price;
-            const bestAsk = data.topAsks[0].price;
+        if (midPrice > 0 && topBids.length > 0 && topAsks.length > 0) {
+            const bestBid = Number(topBids[0].price || 0);
+            const bestAsk = Number(topAsks[0].price || 0);
             chartData.prices.push(midPrice);
             chartData.fast.push(bestBid);
             chartData.slow.push(bestAsk);
@@ -1284,45 +1292,46 @@ async function pollGeminiSentiment() {
     }
 }
 
-
 async function pollTradingBotState() {
     if (isStaticDemo) {
         runStaticTradingBotSimulation();
         return;
     }
     try {
-        const response = await fetch(getApiUrl('/api/bot'));
+        const response = await fetch(getApiUrl('/api/orderbook'));
         if (!response.ok) return;
-        const data = await response.json();
+        const res = await response.json();
+        const data = res.bot;
+        if (!data) return;
 
         // Update UI text values
-        document.getElementById('bot-cash').innerText = '$' + data.cash.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
-        document.getElementById('bot-position').innerText = data.position.toFixed(8) + ' BTC';
+        document.getElementById('bot-cash').innerText = '$' + Number(data.cash || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        document.getElementById('bot-position').innerText = Number(data.position || 0).toFixed(8) + ' BTC';
         
         const navEl = document.getElementById('bot-nav');
-        navEl.innerText = '$' + data.nav.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        navEl.innerText = '$' + Number(data.nav || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
         
-        document.getElementById('bot-bh-nav').innerText = '$' + data.buyAndHoldNav.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        document.getElementById('bot-bh-nav').innerText = '$' + Number(data.buyAndHoldNav || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
         
         // Sync Top Balance Sheet KPI Cards
         const topNav = document.getElementById('top-nav-display');
-        if (topNav) topNav.innerText = '$' + data.nav.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        if (topNav) topNav.innerText = '$' + Number(data.nav || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
         const topPos = document.getElementById('top-pos-display');
-        if (topPos) topPos.innerText = data.position.toFixed(8) + ' BTC';
+        if (topPos) topPos.innerText = Number(data.position || 0).toFixed(8) + ' BTC';
         const topCash = document.getElementById('top-cash-display');
-        if (topCash) topCash.innerText = '$' + data.cash.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        if (topCash) topCash.innerText = '$' + Number(data.cash || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
         const topBH = document.getElementById('top-bh-display');
-        if (topBH) topBH.innerText = '$' + data.buyAndHoldNav.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        if (topBH) topBH.innerText = '$' + Number(data.buyAndHoldNav || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
 
         // Sync Balance Sheet Financial Table
         const tableCash = document.getElementById('table-cash-val');
-        if (tableCash) tableCash.innerText = '$' + data.cash.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        if (tableCash) tableCash.innerText = '$' + Number(data.cash || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
         const tableBtc = document.getElementById('table-btc-val');
-        if (tableBtc) tableBtc.innerText = data.position.toFixed(8) + ' BTC';
+        if (tableBtc) tableBtc.innerText = Number(data.position || 0).toFixed(8) + ' BTC';
         const tableNav = document.getElementById('table-nav-val');
-        if (tableNav) tableNav.innerText = '$' + data.nav.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        if (tableNav) tableNav.innerText = '$' + Number(data.nav || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
         const tableBH = document.getElementById('table-bh-val');
-        if (tableBH) tableBH.innerText = '$' + data.buyAndHoldNav.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        if (tableBH) tableBH.innerText = '$' + Number(data.buyAndHoldNav || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
 
         // Color-code Bot NAV based on performance against Buy & Hold baseline
         if (data.nav > data.buyAndHoldNav) {

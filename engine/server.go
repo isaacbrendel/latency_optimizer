@@ -248,6 +248,77 @@ func EnsureInitialized() {
 	})
 }
 
+func seedInitialMarketData() {
+	OrderBookState.mu.Lock()
+	defer OrderBookState.mu.Unlock()
+	if len(OrderBookState.TopBids) > 0 {
+		return
+	}
+	r := rand.New(rand.NewSource(42))
+	lastPrice := 65000.0
+
+	var snapshotBatch []CompactTrade
+	now := time.Now().UnixNano()
+	for i := 0; i < 20; i++ {
+		bidPrice := lastPrice - float64(i)*2.0 - 0.5 - r.Float64()
+		bidSize := 0.5 + r.Float64()*3.0
+		snapshotBatch = append(snapshotBatch, CompactTrade{
+			ID:        int64(i + 1),
+			Price:     ToUSD(bidPrice),
+			Quantity:  ToBTC(bidSize),
+			Timestamp: now,
+			SymbolID:  0,
+			Side:      0,
+			VenueID:   uint8(i % 3),
+		})
+
+		askPrice := lastPrice + float64(i)*2.0 + 0.5 + r.Float64()
+		askSize := 0.5 + r.Float64()*3.0
+		snapshotBatch = append(snapshotBatch, CompactTrade{
+			ID:        int64(i + 21),
+			Price:     ToUSD(askPrice),
+			Quantity:  ToBTC(askSize),
+			Timestamp: now,
+			SymbolID:  0,
+			Side:      1,
+			VenueID:   uint8(i % 3),
+		})
+	}
+	EngineState.rb.PublishBatch(snapshotBatch)
+	for _, t := range snapshotBatch {
+		if t.Side == 0 {
+			OrderBookState.Bids[t.Price] = t.Quantity
+		} else {
+			OrderBookState.Asks[t.Price] = t.Quantity
+		}
+	}
+
+	bidPrices := make([]USD, 0, len(OrderBookState.Bids))
+	for p := range OrderBookState.Bids {
+		bidPrices = append(bidPrices, p)
+	}
+	sort.Slice(bidPrices, func(i, j int) bool { return bidPrices[i] > bidPrices[j] })
+
+	askPrices := make([]USD, 0, len(OrderBookState.Asks))
+	for p := range OrderBookState.Asks {
+		askPrices = append(askPrices, p)
+	}
+	sort.Slice(askPrices, func(i, j int) bool { return askPrices[i] < askPrices[j] })
+
+	OrderBookState.TopBids = make([]BookLevel, 0, 10)
+	for i := 0; i < len(bidPrices) && i < 10; i++ {
+		OrderBookState.TopBids = append(OrderBookState.TopBids, BookLevel{Price: bidPrices[i], Size: OrderBookState.Bids[bidPrices[i]]})
+	}
+	OrderBookState.TopAsks = make([]BookLevel, 0, 10)
+	for i := 0; i < len(askPrices) && i < 10; i++ {
+		OrderBookState.TopAsks = append(OrderBookState.TopAsks, BookLevel{Price: askPrices[i], Size: OrderBookState.Asks[askPrices[i]]})
+	}
+	if len(OrderBookState.TopBids) > 0 && len(OrderBookState.TopAsks) > 0 {
+		OrderBookState.Spread = OrderBookState.TopAsks[0].Price - OrderBookState.TopBids[0].Price
+	}
+	AddTrace("W", "WRITE", 0, 0, "[Multi-Venue Snapshot] Bids: 20, Asks: 20")
+}
+
 func initEngineState() {
 	EngineState.rb = NewRingBufferV6(2048, 4)
 	EngineState.dashboardReader = EngineState.rb.Readers[0]
@@ -273,6 +344,8 @@ func initEngineState() {
 	BotStateVal.Strategy = "OBI"
 	BotStateVal.Commentary = "Waiting for next HFT signal cycle..."
 	BotStateVal.mu.Unlock()
+
+	seedInitialMarketData()
 }
 
 func runMockL2Producer() {
@@ -561,6 +634,7 @@ func runBotConsumer() {
 // Handlers for HTTP Endpoints
 func HandleOrderBookAPI(w http.ResponseWriter, r *http.Request) {
 	EnsureInitialized()
+	seedInitialMarketData()
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
