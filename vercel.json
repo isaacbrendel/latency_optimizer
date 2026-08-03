@@ -6,6 +6,6 @@
     { "source": "/api/ring-buffer", "destination": "/api/ring-buffer/ringbuffer" },
     { "source": "/api/sentiment", "destination": "/api/sentiment/sentiment" },
     { "source": "/api/run-experiment", "destination": "/api/run-experiment/runexperiment" },
-    { "source": "/(.*)", "destination": "/docs/$1" }
+    { "source": "/((?!api/).*)", "destination": "/docs/$1" }
   ]
 }

@@ -45,7 +45,7 @@ function getApiUrl(endpoint) {
     if (!endpoint) return '';
     if (endpoint.startsWith('http://') || endpoint.startsWith('https://')) return endpoint;
     const origin = window.location.origin;
-    if (origin === 'null' || origin.startsWith('file:')) {
+    if (origin === 'null' || origin.startsWith('file:') || window.location.protocol === 'file:') {
         return 'http://localhost:8080' + (endpoint.startsWith('/') ? endpoint : '/' + endpoint);
     }
     return endpoint.startsWith('/') ? endpoint : '/' + endpoint;
@@ -528,12 +528,6 @@ let demoState = {
     slippagePct: 0.0001
 };
 
-function getApiUrl(path) {
-    if (window.location.protocol === 'file:') {
-        return 'http://localhost:8080' + path;
-    }
-    return path;
-}
 
 async function checkBackendConnectivity() {
     try {
@@ -1111,20 +1105,27 @@ async function pollRingBufferState() {
 
         // Update Live Event Trace Log
         const logEl = document.getElementById('rb-trace-log');
-        if (data.traces && data.traces.length > 0) {
-            logEl.innerHTML = data.traces.map(t => {
-                let badgeClass = 'ptr-badge ' + t.actor.toLowerCase();
-                return `<div style="margin-bottom: 2px;">
-                    <span style="color: #888; font-size: 0.65rem;">[${t.timestamp}]</span>
-                    <span class="${badgeClass}" style="display: inline-block; min-width: 24px; text-align: center;">${t.actor}</span>
-                    <span style="font-weight: bold; color: ${t.action === 'WRITE' ? 'var(--accent-red)' : 'var(--accent-blue)'};">${t.action}</span>
-                    <span style="color: #444;">Slot ${t.slot}</span>
-                    <span style="color: #666; font-style: italic;">(${t.details})</span>
-                </div>`;
-            }).join('');
-            logEl.scrollTop = logEl.scrollHeight;
-        } else {
-            logEl.innerHTML = 'Waiting for concurrent transactions...';
+        if (logEl) {
+            if (data.traces && Array.isArray(data.traces) && data.traces.length > 0) {
+                logEl.innerHTML = data.traces.filter(t => t != null).map(t => {
+                    let actorStr = (t && t.actor) ? String(t.actor) : 'W';
+                    let badgeClass = 'ptr-badge ' + actorStr.toLowerCase();
+                    let actionStr = (t && t.action) ? String(t.action) : '';
+                    let slotStr = (t && t.slot !== undefined && t.slot !== null) ? t.slot : '';
+                    let detailsStr = (t && t.details) ? String(t.details) : '';
+                    let timestampStr = (t && t.timestamp) ? String(t.timestamp) : '';
+                    return `<div style="margin-bottom: 2px;">
+                        <span style="color: #888; font-size: 0.65rem;">[${timestampStr}]</span>
+                        <span class="${badgeClass}" style="display: inline-block; min-width: 24px; text-align: center;">${actorStr}</span>
+                        <span style="font-weight: bold; color: ${actionStr === 'WRITE' ? 'var(--accent-red)' : 'var(--accent-blue)'};">${actionStr}</span>
+                        <span style="color: #444;">Slot ${slotStr}</span>
+                        <span style="color: #666; font-style: italic;">(${detailsStr})</span>
+                    </div>`;
+                }).join('');
+                logEl.scrollTop = logEl.scrollHeight;
+            } else {
+                logEl.innerHTML = 'Waiting for concurrent transactions...';
+            }
         }
     } catch (err) {
         console.error('Error polling ring buffer:', err);
@@ -1190,7 +1191,8 @@ async function pollGeminiSentiment() {
 
         // 1. Update OBI Gauge
         const obiPct = (obiVal * 100).toFixed(2);
-        document.getElementById('ind-obi').innerText = (obiVal >= 0 ? '+' : '') + obiPct + '%';
+        const obiEl = document.getElementById('ind-obi');
+        if (obiEl) obiEl.innerText = (obiVal >= 0 ? '+' : '') + obiPct + '%';
         
         const barEl = document.getElementById('obi-bar');
         if (barEl) {
@@ -1207,17 +1209,20 @@ async function pollGeminiSentiment() {
         }
 
         // 2. Update Spread & Mid Price
-        document.getElementById('ind-spread').innerText = '$' + spreadFloat.toFixed(2);
+        const spreadEl = document.getElementById('ind-spread');
+        if (spreadEl) spreadEl.innerText = '$' + spreadFloat.toFixed(2);
         
         let midPrice = rawData.midPrice ? Number(rawData.midPrice) : 0;
         if (!midPrice && topBids.length > 0 && topAsks.length > 0) {
             midPrice = (topBids[0].price + topAsks[0].price) / 2;
         }
-        document.getElementById('ind-mid').innerText = '$' + midPrice.toFixed(2);
+        const midEl = document.getElementById('ind-mid');
+        if (midEl) midEl.innerText = '$' + midPrice.toFixed(2);
         latestPrice = midPrice;
 
         // 3. Update Sync Timestamp
-        document.getElementById('ind-updated').innerText = new Date().toLocaleTimeString();
+        const updatedEl = document.getElementById('ind-updated');
+        if (updatedEl) updatedEl.innerText = new Date().toLocaleTimeString();
 
         // 4. Render Bids Table (Top 5 Bids)
         const bidsBody = document.querySelector('#obi-bids-table tbody');
@@ -1305,13 +1310,17 @@ async function pollTradingBotState() {
         if (!data) return;
 
         // Update UI text values
-        document.getElementById('bot-cash').innerText = '$' + Number(data.cash || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
-        document.getElementById('bot-position').innerText = Number(data.position || 0).toFixed(8) + ' BTC';
+        const cashEl = document.getElementById('bot-cash');
+        if (cashEl) cashEl.innerText = '$' + Number(data.cash || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        
+        const posEl = document.getElementById('bot-position');
+        if (posEl) posEl.innerText = Number(data.position || 0).toFixed(8) + ' BTC';
         
         const navEl = document.getElementById('bot-nav');
-        navEl.innerText = '$' + Number(data.nav || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        if (navEl) navEl.innerText = '$' + Number(data.nav || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
         
-        document.getElementById('bot-bh-nav').innerText = '$' + Number(data.buyAndHoldNav || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        const bhNavEl = document.getElementById('bot-bh-nav');
+        if (bhNavEl) bhNavEl.innerText = '$' + Number(data.buyAndHoldNav || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
         
         // Sync Top Balance Sheet KPI Cards
         const topNav = document.getElementById('top-nav-display');
@@ -1334,18 +1343,20 @@ async function pollTradingBotState() {
         if (tableBH) tableBH.innerText = '$' + Number(data.buyAndHoldNav || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
 
         // Color-code Bot NAV based on performance against Buy & Hold baseline
-        if (data.nav > data.buyAndHoldNav) {
-            navEl.style.color = 'var(--accent-green)';
-            if (topNav) topNav.style.color = 'var(--accent-green)';
-            if (tableNav) tableNav.style.color = 'var(--accent-green)';
-        } else if (data.nav < data.buyAndHoldNav) {
-            navEl.style.color = 'var(--accent-red)';
-            if (topNav) topNav.style.color = 'var(--accent-red)';
-            if (tableNav) tableNav.style.color = 'var(--accent-red)';
-        } else {
-            navEl.style.color = 'var(--text-main)';
-            if (topNav) topNav.style.color = 'var(--text-main)';
-            if (tableNav) tableNav.style.color = 'var(--text-main)';
+        if (navEl) {
+            if (data.nav > data.buyAndHoldNav) {
+                navEl.style.color = 'var(--accent-green)';
+                if (topNav) topNav.style.color = 'var(--accent-green)';
+                if (tableNav) tableNav.style.color = 'var(--accent-green)';
+            } else if (data.nav < data.buyAndHoldNav) {
+                navEl.style.color = 'var(--accent-red)';
+                if (topNav) topNav.style.color = 'var(--accent-red)';
+                if (tableNav) tableNav.style.color = 'var(--accent-red)';
+            } else {
+                navEl.style.color = 'var(--text-main)';
+                if (topNav) topNav.style.color = 'var(--text-main)';
+                if (tableNav) tableNav.style.color = 'var(--text-main)';
+            }
         }
         
         const strategyLabelEl = document.getElementById('bot-strategy');
