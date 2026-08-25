@@ -5,6 +5,9 @@ on:
     - cron: '0 6 * * *' # Executes at 06:00 UTC every day
   workflow_dispatch:      # Enables manual on-demand execution
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   nightly-soak-and-race:
     name: Nightly Concurrency Soak, Fuzzing & API Matrix
@@ -40,10 +43,10 @@ jobs:
           echo "Fuzzing fixed-point USD/BTC numeric precision..."
           go test -run=^# -fuzz=FuzzFixedPointUSD -fuzztime=30s .
 
-      - name: Set up Node.js 20
+      - name: Set up Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: '20.x'
+          node-version: '22'
 
       - name: Install Node Dependencies
         run: npm install
