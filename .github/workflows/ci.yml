@@ -49,10 +49,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
-          cache: 'npm'
 
       - name: Install Node Test Dependencies
-        run: npm ci || npm install
+        run: npm install
+
+      - name: Compile Test Binary for API Suite
+        run: go build -v -o server_test_bin live_server.go
 
       - name: Run Jest Automated REST & SSE API Integration Tests
         run: npm test

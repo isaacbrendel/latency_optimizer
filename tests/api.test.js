@@ -43,15 +43,25 @@ function waitForServerReady(url, maxAttempts = 30, intervalMs = 200) {
   });
 }
 
+const fs = require('fs');
+const path = require('path');
+
 beforeAll(async () => {
-  // Start the Go live server on dedicated test port
-  serverProcess = spawn('go', ['run', 'live_server.go'], {
-    env: { ...process.env, PORT: String(TEST_PORT), PATH: `/usr/local/go/bin:/opt/homebrew/bin:/usr/local/bin:${process.env.PATH}` },
-    stdio: 'ignore'
-  });
+  const binaryPath = path.join(__dirname, '..', 'server_test_bin');
+  if (fs.existsSync(binaryPath)) {
+    serverProcess = spawn(binaryPath, [], {
+      env: { ...process.env, PORT: String(TEST_PORT) },
+      stdio: 'ignore'
+    });
+  } else {
+    serverProcess = spawn('go', ['run', 'live_server.go'], {
+      env: { ...process.env, PORT: String(TEST_PORT) },
+      stdio: 'ignore'
+    });
+  }
 
   await waitForServerReady(BASE_URL);
-}, 20000);
+}, 30000);
 
 afterAll(async () => {
   if (serverProcess) {

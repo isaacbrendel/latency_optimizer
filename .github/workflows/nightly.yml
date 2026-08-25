@@ -44,10 +44,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20.x'
-          cache: 'npm'
 
       - name: Install Node Dependencies
-        run: npm ci || npm install
+        run: npm install
+
+      - name: Compile Test Binary for API Suite
+        run: go build -v -o server_test_bin live_server.go
 
       - name: Run Jest Automated REST & SSE API Integration Suite
         run: npm test

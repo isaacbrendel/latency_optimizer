@@ -15,4 +15,5 @@ coverage/
 # Go test coverage
 coverage.out
 latency-optimizer-bin
+server_test_bin
 
