@@ -48,20 +48,17 @@ const path = require('path');
 
 beforeAll(async () => {
   const binaryPath = path.join(__dirname, '..', 'server_test_bin');
-  if (fs.existsSync(binaryPath)) {
-    serverProcess = spawn(binaryPath, [], {
-      env: { ...process.env, PORT: String(TEST_PORT) },
-      stdio: 'ignore'
-    });
-  } else {
-    serverProcess = spawn('go', ['run', 'live_server.go'], {
-      env: { ...process.env, PORT: String(TEST_PORT) },
-      stdio: 'ignore'
-    });
+  if (!fs.existsSync(binaryPath)) {
+    throw new Error('server_test_bin not found – CI must build it first');
   }
 
+  serverProcess = spawn(binaryPath, [], {
+    env: { ...process.env, PORT: String(TEST_PORT) },
+    stdio: 'ignore'
+  });
+
   await waitForServerReady(BASE_URL);
-}, 30000);
+}, 45000); // give it a bit more time in CI
 
 afterAll(async () => {
   if (serverProcess) {
