@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand"
+	"sync/atomic"
 	"time"
 )
 
@@ -62,7 +63,7 @@ var DummyResult int64
 
 func ProcessTrade(t *Trade) {
 	if t != nil {
-		DummyResult += t.ID
+		atomic.AddInt64(&DummyResult, t.ID)
 	}
 }
 
@@ -76,7 +77,10 @@ const (
 )
 
 func ToUSD(f float64) USD {
-	return USD(f*float64(USDScale) + 0.5)
+	if f >= 0 {
+		return USD(f*float64(USDScale) + 0.5)
+	}
+	return USD(f*float64(USDScale) - 0.5)
 }
 
 func (u USD) Float64() float64 {
@@ -84,7 +88,10 @@ func (u USD) Float64() float64 {
 }
 
 func ToBTC(f float64) BTC {
-	return BTC(f*float64(BTCScale) + 0.5)
+	if f >= 0 {
+		return BTC(f*float64(BTCScale) + 0.5)
+	}
+	return BTC(f*float64(BTCScale) - 0.5)
 }
 
 func (b BTC) Float64() float64 {
@@ -92,8 +99,13 @@ func (b BTC) Float64() float64 {
 }
 
 // Value calculates the USD value of this BTC quantity at a given USD price.
+// Decomposes multiplication to prevent 64-bit integer overflow on large financial sizes.
 func (b BTC) Value(price USD) USD {
-	return USD((int64(b) * int64(price)) / BTCScale)
+	bInt := int64(b)
+	pInt := int64(price)
+	high := (bInt / 10000) * pInt / 10000
+	low := ((bInt % 10000) * pInt) / BTCScale
+	return USD(high + low)
 }
 
 // Quant calculates the BTC quantity from this USD value at a given USD price.
@@ -101,7 +113,11 @@ func (u USD) Quant(price USD) BTC {
 	if price == 0 {
 		return 0
 	}
-	return BTC((int64(u) * BTCScale) / int64(price))
+	uInt := int64(u)
+	pInt := int64(price)
+	high := (uInt / pInt) * BTCScale
+	low := ((uInt % pInt) * BTCScale) / pInt
+	return BTC(high + low)
 }
 
 // CompactTrade represents a pointerless, flat trade record optimized for 64-bit CPU alignment.
@@ -134,7 +150,7 @@ type CoinbaseL2Update struct {
 }
 
 func ProcessCompactTrade(t CompactTrade) {
-	DummyResult += t.ID
+	atomic.AddInt64(&DummyResult, t.ID)
 }
 
 func (u USD) MarshalJSON() ([]byte, error) {

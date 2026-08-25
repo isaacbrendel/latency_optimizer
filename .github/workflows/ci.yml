@@ -1,0 +1,61 @@
+name: CI & Concurrency Verification
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test-and-verify:
+    name: Build, Test (-race), Fuzz & API Validation
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        go-version: ['1.21.x', '1.22.x']
+        node-version: ['20.x']
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Set up Go ${{ matrix.go-version }}
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+          cache: true
+
+      - name: Verify Go Dependencies
+        run: go mod download
+
+      - name: Run Unit & Concurrency Tests (Go Race Detector Enabled)
+        run: |
+          echo "Running multi-iteration race detection suite..."
+          go test -race -v -count=3 ./...
+
+      - name: Run Property-Based & Native Fuzz Tests
+        run: |
+          echo "Executing native Go fuzz invariant suites..."
+          go test -run=^# -fuzz=FuzzRingBufferPublishRead -fuzztime=5s .
+          go test -run=^# -fuzz=FuzzFixedPointUSD -fuzztime=5s .
+
+      - name: Generate Code Coverage Report
+        run: |
+          go test -coverprofile=coverage.out -covermode=atomic ./...
+          go tool cover -func=coverage.out
+
+      - name: Set up Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install Node Test Dependencies
+        run: npm ci || npm install
+
+      - name: Run Jest Automated REST & SSE API Integration Tests
+        run: npm test
+
+      - name: Compile Production Binary
+        run: go build -v -o latency-optimizer-bin .

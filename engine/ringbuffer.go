@@ -109,7 +109,7 @@ func (s *AdaptiveWaitStrategy) WaitFor(targetSeq int64, currentSeqGetter func() 
 
 func (s *AdaptiveWaitStrategy) Signal() {
 	s.condMu.Lock()
-	s.cond.Signal()
+	s.cond.Broadcast()
 	s.condMu.Unlock()
 }
 
@@ -195,7 +195,7 @@ type RingBufferV6 struct {
 
 // NewRingBufferV6 creates a new RingBufferV6 with size buffer slots and N readers.
 func NewRingBufferV6(size int64, numSubscribers int) *RingBufferV6 {
-	if (size & (size - 1)) != 0 {
+	if size <= 0 || (size&(size-1)) != 0 {
 		panic("Size must be a power of 2")
 	}
 
@@ -253,7 +253,7 @@ func (rb *RingBufferV6) GetMinReaderSeq() int64 {
 
 // PublishBatch writes a batch of Trades to the RingBuffer by value copy.
 func (rb *RingBufferV6) PublishBatch(trades []CompactTrade) {
-	seq := rb.WriteSeq
+	seq := atomic.LoadInt64(&rb.WriteSeq)
 
 	for _, t := range trades {
 		for {
@@ -278,20 +278,6 @@ func (rb *RingBufferV6) PublishBatch(trades []CompactTrade) {
 	}
 
 	atomic.StoreInt64(&rb.WriteSeq, seq)
-	rb.WaitStrategy.Signal()
-}
-
-// PublishBatchEvicting writes trades to the RingBuffer without ever blocking.
-func (rb *RingBufferV6) PublishBatchEvicting(trades []CompactTrade) {
-	seq := atomic.LoadInt64(&rb.WriteSeq)
-
-	for _, t := range trades {
-		idx := seq & rb.Mask
-		rb.Buffer[idx] = t
-		seq++
-	}
-
-	atomic.StoreInt64(&rb.WriteSeq, seq)
 
 	for _, r := range rb.Readers {
 		if !r.Blocking {
@@ -306,9 +292,34 @@ func (rb *RingBufferV6) PublishBatchEvicting(trades []CompactTrade) {
 	rb.WaitStrategy.Signal()
 }
 
+// PublishBatchEvicting writes trades to the RingBuffer without ever blocking.
+func (rb *RingBufferV6) PublishBatchEvicting(trades []CompactTrade) {
+	seq := atomic.LoadInt64(&rb.WriteSeq)
+	newEndSeq := seq + int64(len(trades))
+
+	for _, r := range rb.Readers {
+		if !r.Blocking {
+			rSeq := atomic.LoadInt64(&r.ReadSeq)
+			if newEndSeq-rSeq > rb.Size {
+				atomic.StoreInt64(&r.ReadSeq, newEndSeq-rb.Size)
+				atomic.AddInt64(&r.EvictedCount, 1)
+			}
+		}
+	}
+
+	for _, t := range trades {
+		idx := seq & rb.Mask
+		rb.Buffer[idx] = t
+		seq++
+	}
+
+	atomic.StoreInt64(&rb.WriteSeq, seq)
+	rb.WaitStrategy.Signal()
+}
+
 // Read runs the reader loop, processing up to targetCount total trades using a sequence barrier.
 func (rb *RingBufferV6) Read(reader *RingBufferReader, targetCount int64, barrier *SequenceBarrier, process func(CompactTrade)) {
-	readSeq := int64(0)
+	readSeq := atomic.LoadInt64(&reader.ReadSeq)
 
 	var limitGetter func() int64
 	if barrier == nil {
@@ -329,6 +340,12 @@ func (rb *RingBufferV6) Read(reader *RingBufferReader, targetCount int64, barrie
 		}
 
 		if !reader.Blocking {
+			currentWrite := atomic.LoadInt64(&rb.WriteSeq)
+			if currentWrite-readSeq > rb.Size {
+				readSeq = currentWrite - rb.Size
+				atomic.StoreInt64(&reader.ReadSeq, readSeq)
+				atomic.AddInt64(&reader.EvictedCount, 1)
+			}
 			currentRSeq := atomic.LoadInt64(&reader.ReadSeq)
 			if currentRSeq > readSeq {
 				readSeq = currentRSeq
@@ -336,12 +353,22 @@ func (rb *RingBufferV6) Read(reader *RingBufferReader, targetCount int64, barrie
 		}
 
 		for readSeq < limitSeq && readSeq < targetCount {
+			if !reader.Blocking {
+				currWrite := atomic.LoadInt64(&rb.WriteSeq)
+				if currWrite-readSeq > rb.Size {
+					readSeq = currWrite - rb.Size
+					atomic.StoreInt64(&reader.ReadSeq, readSeq)
+					atomic.AddInt64(&reader.EvictedCount, 1)
+					break
+				}
+			}
 			idx := readSeq & rb.Mask
 			trade := rb.Buffer[idx]
 			process(trade)
 			readSeq++
+			atomic.StoreInt64(&reader.ReadSeq, readSeq)
 		}
 
-		atomic.StoreInt64(&reader.ReadSeq, readSeq)
+		rb.WaitStrategy.Signal()
 	}
 }

@@ -238,9 +238,6 @@ func runSingleBenchmark(impl string, trades []*Trade, numSubscribers int) Benchm
 	case "RingBufferEviction":
 		bufSize := int64(2048)
 		rb := NewRingBufferV6(bufSize, numSubscribers)
-		for _, r := range rb.Readers {
-			r.Blocking = false
-		}
 
 		compactTrades := make([]CompactTrade, len(trades))
 		for idx, t := range trades {
@@ -272,7 +269,7 @@ func runSingleBenchmark(impl string, trades []*Trade, numSubscribers int) Benchm
 			if end > len(compactTrades) {
 				end = len(compactTrades)
 			}
-			rb.PublishBatchEvicting(compactTrades[i:end])
+			rb.PublishBatch(compactTrades[i:end])
 		}
 
 	case "FlatBuffersZeroCopy":

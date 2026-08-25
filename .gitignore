@@ -7,3 +7,12 @@ bot_state.json
 # Environment variables & API keys
 .env
 .vercel
+
+# Node & Jest artifacts
+node_modules/
+coverage/
+
+# Go test coverage
+coverage.out
+latency-optimizer-bin
+

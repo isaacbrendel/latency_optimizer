@@ -1,0 +1,53 @@
+name: Nightly Soak & Quality Matrix
+
+on:
+  schedule:
+    - cron: '0 6 * * *' # Executes at 06:00 UTC every day
+  workflow_dispatch:      # Enables manual on-demand execution
+
+jobs:
+  nightly-soak-and-race:
+    name: Nightly Concurrency Soak, Fuzzing & API Matrix
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Set up Go 1.22
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22.x'
+          cache: true
+
+      - name: Download Go Modules
+        run: go mod download
+
+      - name: Multi-Iteration Concurrency & Race Detector Suite
+        run: |
+          echo "Executing full multi-package race detector suite..."
+          go test -race -v -count=2 ./...
+
+      - name: Extended Soak & Stress Concurrency Test
+        run: |
+          echo "Executing 50,000-trade 32-consumer concurrency soak test..."
+          go test -race -v -run 'TestSoak|TestStress|TestHigh' -timeout 20m ./...
+
+      - name: Extended Invariant Fuzzing (30s per harness)
+        run: |
+          echo "Fuzzing RingBuffer wire encoding & sequence boundaries..."
+          go test -run=^# -fuzz=FuzzRingBufferPublishRead -fuzztime=30s .
+          echo "Fuzzing fixed-point USD/BTC numeric precision..."
+          go test -run=^# -fuzz=FuzzFixedPointUSD -fuzztime=30s .
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install Node Dependencies
+        run: npm ci || npm install
+
+      - name: Run Jest Automated REST & SSE API Integration Suite
+        run: npm test

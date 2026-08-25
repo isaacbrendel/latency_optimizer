@@ -1,0 +1,25 @@
+{
+  "name": "latency-optimizer",
+  "version": "1.0.0",
+  "description": "High-Throughput Disruptor Ring Buffer and Market Data Engine in Go",
+  "main": "docs/app.js",
+  "scripts": {
+    "test": "node ./node_modules/jest/bin/jest.js --runInBand --detectOpenHandles",
+    "test:coverage": "node ./node_modules/jest/bin/jest.js --coverage"
+  },
+  "keywords": [
+    "disruptor",
+    "ringbuffer",
+    "hft",
+    "market-data",
+    "low-latency",
+    "go",
+    "sdet",
+    "testing"
+  ],
+  "author": "Isaac Brendel",
+  "license": "MIT",
+  "devDependencies": {
+    "jest": "^29.7.0"
+  }
+}
