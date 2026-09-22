@@ -1,95 +1,97 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<link rel="stylesheet" href="http://127.0.0.1:8780/styles.css?v=8" />
-<style>
-  html, body {
-    width: 1200px !important;
-    height: 630px !important;
-    overflow: hidden !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    background: #fbfbf9 !important;
-  }
-  body {
-    padding: 28px 36px !important;
-    font-size: 13px !important;
-  }
-  .paper-container {
-    max-width: none !important;
-    width: 100% !important;
-    height: 100% !important;
-    padding: 28px 40px 24px !important;
-    margin: 0 !important;
-    overflow: hidden !important;
-    display: flex;
-    flex-direction: column;
-  }
-  .academic-title-block { margin-bottom: 1.1rem !important; }
-  .paper-title-large { font-size: 1.55rem !important; margin-bottom: 0.7rem !important; }
-  .authors-block { font-size: 0.88rem !important; margin-bottom: 0.7rem !important; }
-  .abstract-container { margin-bottom: 0.9rem !important; }
-  .abstract-container p {
-    font-size: 0.92rem !important;
-    line-height: 1.45 !important;
-    max-height: 4.6em;
-    overflow: hidden;
-  }
-  .stress-test-abstract-card { margin: 0 !important; }
-  .stress-notes { display: none !important; }
-  .balance-sheet-summary, .paper-section { display: none !important; }
-</style>
+  <meta charset="UTF-8" />
+  <title>Latency Engine — Thumbnail</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 1200px;
+      height: 630px;
+      overflow: hidden;
+      background: #fbfbf9;
+      color: #000;
+      font-family: "Times New Roman", Times, Georgia, serif;
+    }
+    .page {
+      width: 1200px;
+      height: 630px;
+      padding: 36px 42px;
+    }
+    .paper {
+      width: 100%;
+      height: 100%;
+      background: #fff;
+      border: 1px solid #d3d3d3;
+      padding: 48px 56px 44px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .kicker {
+      font-family: Helvetica, Arial, sans-serif;
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #333;
+    }
+    h1 {
+      margin-top: 20px;
+      font-weight: normal;
+      font-size: 110px;
+      line-height: 0.95;
+      letter-spacing: -0.02em;
+    }
+    .sub {
+      margin-top: 18px;
+      font-size: 34px;
+      line-height: 1.25;
+      max-width: 980px;
+    }
+    .bottom {
+      border-top: 3px solid #000;
+      padding-top: 28px;
+      display: flex;
+      align-items: center;
+      gap: 28px;
+    }
+    .stat {
+      font-family: "Courier New", Courier, monospace;
+      font-size: 120px;
+      font-weight: 800;
+      color: #005f00;
+      line-height: 1;
+      letter-spacing: -0.04em;
+    }
+    .note {
+      font-size: 36px;
+      line-height: 1.2;
+      font-style: italic;
+    }
+    .url {
+      margin-top: 18px;
+      font-family: "Courier New", Courier, monospace;
+      font-size: 26px;
+      color: #000080;
+      text-decoration: underline;
+    }
+  </style>
 </head>
 <body>
-  <div class="paper-container">
-    <div class="academic-title-block">
-      <h1 class="paper-title-large">A Comparative Evaluation of High-Throughput Producer-Consumer Architectures in the Go Runtime</h1>
-      <div class="authors-block">
-        <strong>Isaac Brendel</strong><br>
-        <span class="author-affiliation">Systems Architecture &amp; Quantitative Infrastructure</span><br>
-        <span class="author-email" style="font-family: var(--font-mono); font-size: 0.78rem; margin-top: 4px; display: block;">
-          Source Code: <a href="https://github.com/isaacbrendel/latency_optimizer" style="color: var(--accent-blue); text-decoration: underline;">github.com/isaacbrendel/latency_optimizer</a> &bull;
-          Deployment: <a href="https://isaacbrendel.github.io/latency_optimizer/" style="color: var(--accent-blue); text-decoration: underline;">isaacbrendel.github.io/latency_optimizer</a>
-        </span>
+  <div class="page">
+    <div class="paper">
+      <div>
+        <div class="kicker">Working Draft · Replication Study</div>
+        <h1>Latency Engine</h1>
+        <p class="sub">Lock-free ring buffer for Level-2 market data in Go</p>
       </div>
-      <div class="manuscript-status">
-        <span><strong>Status:</strong> Working Draft / Replication Study</span> &bull;
-        <span><strong>Date:</strong> July 24, 2026</span>
-      </div>
-    </div>
-    <div class="abstract-container">
-      <h3>Abstract</h3>
-      <p>
-        In high-frequency market data architecture, order book dissemination requires microsecond-level latency scaling across thousands of concurrent execution targets. This workstation evaluates channel-based fan-out models against an optimized lock-free circular ring buffer (RingBuffer V6) utilizing CPU L1 cache-line padding, atomic sequence synchronization, and pointerless struct layout. Empirical evaluation demonstrates a 611x heap allocation reduction and 350x execution speedup under non-blocking slow-reader eviction, eliminating thread scheduling contention and GC latency spikes.
-      </p>
-    </div>
-    <div class="stress-test-abstract-card">
-      <div class="stress-header-row">
-        <span class="stress-badge">Multi-Venue Concurrency &amp; Benchmark Metrics</span>
-        <span class="stress-status"><span class="pulse-dot"></span> Live Go Runtime Benchmarks</span>
-      </div>
-      <div class="stress-metrics-grid">
-        <div class="stress-stat">
-          <span class="stat-num text-green">1.03 ns</span>
-          <span class="stat-lbl">FlatBuffers Zero-Copy Wire</span>
-          <span class="stat-sub">0 B/op &bull; 0 Allocations</span>
+      <div>
+        <div class="bottom">
+          <div class="stat">611×</div>
+          <div class="note">less heap · microsecond<br />fan-out under load</div>
         </div>
-        <div class="stress-stat">
-          <span class="stat-num text-blue">626 µs</span>
-          <span class="stat-lbl">Non-Blocking Eviction Mode</span>
-          <span class="stat-sub">350x Speedup vs V1 Baseline</span>
-        </div>
-        <div class="stress-stat">
-          <span class="stat-num text-purple">13.2 ms</span>
-          <span class="stat-lbl">100,000 Trade Ingress</span>
-          <span class="stat-sub">500 Concurrent Subscribers</span>
-        </div>
-        <div class="stress-stat">
-          <span class="stat-num text-orange">65.9 ms</span>
-          <span class="stat-lbl">2,000 Subscriber Scale</span>
-          <span class="stat-sub">Zero Producer Lock Stalls</span>
-        </div>
+        <div class="url">latency-optimizer.vercel.app</div>
       </div>
     </div>
   </div>
