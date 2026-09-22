@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Latency Engine — Thumbnail</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Instrument+Serif:ital@0;1&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --cream: #fffcf4;
+      --ink: #0a0a0a;
+      --accent-red: #e11d2e;
+      --cta: #d6ff00;
+      --chip-go: #0ea5a4;
+      --chip-atomic: #84cc16;
+      --chip-ring: #111111;
+      --chip-lmax: #f59e0b;
+      --chip-hft: #dc2626;
+      --bg-a: #ebe4d4;
+      --bg-b: #f3ecc0;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      width: 1200px;
+      height: 630px;
+      overflow: hidden;
+      background: linear-gradient(135deg, var(--bg-a) 0%, var(--bg-b) 55%, #f7f1d8 100%);
+      font-family: "Space Grotesk", system-ui, sans-serif;
+    }
+
+    .stage {
+      width: 1200px;
+      height: 630px;
+      display: grid;
+      place-items: center;
+      padding: 48px 56px;
+    }
+
+    .card {
+      width: 100%;
+      height: 100%;
+      background: var(--cream);
+      border: 3px solid var(--ink);
+      box-shadow: 10px 10px 0 var(--ink);
+      padding: 36px 44px 32px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .eyebrow {
+      color: var(--accent-red);
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .domain {
+      background: #fff;
+      border: 2px solid var(--ink);
+      padding: 6px 12px;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+
+    .brand {
+      margin-top: 18px;
+    }
+
+    .brand h1 {
+      font-family: "Archivo Black", "Arial Black", sans-serif;
+      font-size: 118px;
+      line-height: 0.88;
+      letter-spacing: -0.03em;
+      text-transform: uppercase;
+      color: var(--ink);
+    }
+
+    .tagline {
+      margin-top: 18px;
+      font-family: "Instrument Serif", Georgia, serif;
+      font-style: italic;
+      font-size: 28px;
+      line-height: 1.25;
+      color: var(--ink);
+      max-width: 920px;
+    }
+
+    .chips {
+      display: flex;
+      gap: 12px;
+      margin-top: 28px;
+      flex-wrap: wrap;
+    }
+
+    .chip {
+      background: #fff;
+      border: 2px solid var(--ink);
+      min-width: 108px;
+      padding: 10px 14px 12px;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-align: center;
+      position: relative;
+    }
+
+    .chip::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 5px;
+      background: var(--bar);
+    }
+
+    .rule {
+      height: 2px;
+      background: var(--ink);
+      margin: 28px 0 22px;
+      border: 0;
+    }
+
+    .bottom {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+    }
+
+    .cta {
+      display: inline-block;
+      background: var(--cta);
+      border: 3px solid var(--ink);
+      box-shadow: 5px 5px 0 var(--ink);
+      padding: 14px 22px;
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--ink);
+    }
+
+    .meta {
+      text-align: right;
+      font-size: 15px;
+      font-weight: 700;
+      line-height: 1.35;
+      color: var(--ink);
+    }
+
+    .meta span {
+      display: block;
+      font-weight: 500;
+      opacity: 0.85;
+    }
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <div class="card">
+      <div>
+        <div class="top">
+          <div class="eyebrow">Lock-free ring buffer · live bench</div>
+          <div class="domain">latency_optimizer</div>
+        </div>
+        <div class="brand">
+          <h1>LATENCY<br />ENGINE</h1>
+        </div>
+        <p class="tagline">
+          611× less heap. 36× faster under load.<br />
+          Order-book fan-out without GC stalls.
+        </p>
+        <div class="chips">
+          <div class="chip" style="--bar: var(--chip-go)">GO</div>
+          <div class="chip" style="--bar: var(--chip-atomic)">ATOMIC</div>
+          <div class="chip" style="--bar: var(--chip-ring)">RING</div>
+          <div class="chip" style="--bar: var(--chip-lmax)">LMAX</div>
+          <div class="chip" style="--bar: var(--chip-hft)">HFT</div>
+        </div>
+      </div>
+      <div>
+        <hr class="rule" />
+        <div class="bottom">
+          <div class="cta">Open the bench</div>
+          <div class="meta">
+            github.com/isaacbrendel
+            <span>systems × market data</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
