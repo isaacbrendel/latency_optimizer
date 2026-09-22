@@ -1,5 +1,8 @@
 # Build binaries
 test_bin
+*.test
+*.exe
+__debug_bin*
 
 # Local bot state & trades
 bot_state.json
@@ -19,3 +22,9 @@ server_test_bin
 
 latency-optimizer
 engine/docs/
+docs/.benchmark_results.json.tmp
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/

@@ -160,7 +160,7 @@ func seedInitialMarketData() {
 			Timestamp: now,
 			SymbolID:  0,
 			Side:      0,
-			VenueID:   uint8(i % 3),
+			VenueID:   0,
 		})
 
 		askPrice := lastPrice + float64(i)*2.0 + 0.5 + r.Float64()
@@ -172,7 +172,7 @@ func seedInitialMarketData() {
 			Timestamp: now,
 			SymbolID:  0,
 			Side:      1,
-			VenueID:   uint8(i % 3),
+			VenueID:   0,
 		})
 	}
 	EngineState.rb.PublishBatch(snapshotBatch)
@@ -180,7 +180,7 @@ func seedInitialMarketData() {
 		OrderBookState.Update(t.Price, t.Quantity, t.Side)
 	}
 	IndicatorStateVal.OnBookUpdate(OrderBookState)
-	AddTrace("W", "WRITE", 0, 0, "[Multi-Venue Snapshot] Bids: 20, Asks: 20")
+	AddTrace("W", "WRITE", 0, 0, "[Mock Snapshot] Bids: 20, Asks: 20")
 }
 
 func initEngineState() {
@@ -234,7 +234,7 @@ func runMockL2Producer() {
 			Timestamp: now,
 			SymbolID:  0,
 			Side:      0,
-			VenueID:   uint8(i % 3),
+			VenueID:   0,
 		})
 
 		askPrice := lastPrice + float64(i)*2.0 + r.Float64()
@@ -246,11 +246,11 @@ func runMockL2Producer() {
 			Timestamp: now,
 			SymbolID:  0,
 			Side:      1,
-			VenueID:   uint8(i % 3),
+			VenueID:   0,
 		})
 	}
 	EngineState.rb.PublishBatch(snapshotBatch)
-	AddTrace("W", "WRITE", 0, 0, "[Multi-Venue Snapshot] Bids: 20, Asks: 20")
+	AddTrace("W", "WRITE", 0, 0, "[Mock Snapshot] Bids: 20, Asks: 20")
 
 	for range ticker.C {
 		if atomic.LoadInt32(&wsConnected) == 1 {
@@ -283,7 +283,6 @@ func runMockL2Producer() {
 				size = 0.05 + r.Float64()*3.0
 			}
 
-			venueID := uint8(r.Intn(3))
 			updates = append(updates, CompactTrade{
 				ID:        nowUpdate/1e6 + int64(i),
 				Price:     ToUSD(price),
@@ -291,7 +290,7 @@ func runMockL2Producer() {
 				Timestamp: nowUpdate,
 				SymbolID:  0,
 				Side:      side,
-				VenueID:   venueID,
+				VenueID:   0,
 			})
 		}
 
@@ -609,9 +608,9 @@ func HandleRingBufferAPI(w http.ResponseWriter, r *http.Request) {
 		trade := EngineState.rb.SlotAt(i)
 		venueStr := "Coinbase"
 		if trade.VenueID == 1 {
-			venueStr = "Robinhood"
+			venueStr = "Synthetic-1"
 		} else if trade.VenueID == 2 {
-			venueStr = "Binance"
+			venueStr = "Synthetic-2"
 		}
 		side := "ASK"
 		if trade.Side == 0 {

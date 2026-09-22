@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>A Comparative Evaluation of High-Throughput Producer-Consumer Architectures in the Go Runtime</title>
     <!-- LaTeX Manuscript Stylesheet -->
-    <link rel="stylesheet" href="styles.css?v=8">
+    <link rel="stylesheet" href="styles.css?v=9">
     <!-- Chart.js CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 </head>
@@ -39,13 +39,13 @@
         <!-- High-Throughput Engine Benchmark & Architecture Summary -->
         <div class="stress-test-abstract-card">
             <div class="stress-header-row">
-                <span class="stress-badge">Multi-Venue Concurrency &amp; Benchmark Metrics</span>
-                <span class="stress-status"><span class="pulse-dot"></span> Live Go Runtime Benchmarks</span>
+                <span class="stress-badge">Coinbase L2 + Ring Buffer Benchmarks</span>
+                <span class="stress-status" id="feed-live-status"><span class="pulse-dot"></span> Connecting to live feed…</span>
             </div>
             <div class="stress-metrics-grid">
                 <div class="stress-stat">
                     <span class="stat-num text-green">1.03 ns</span>
-                    <span class="stat-lbl">FlatBuffers Zero-Copy Wire</span>
+                    <span class="stat-lbl">Binary Wire Fan-out</span>
                     <span class="stat-sub">0 B/op &bull; 0 Allocations</span>
                 </div>
                 <div class="stress-stat">
@@ -65,7 +65,7 @@
                 </div>
             </div>
             <div class="stress-notes">
-                <strong>Systems Architecture Note:</strong> Non-blocking slow-reader eviction prevents lagging market data subscribers from throttling write execution. FlatBuffers binary vtables achieve 1.03ns wire decoding with zero GC overhead. 40-byte <code>CompactTrade</code> structs pack 3 trade records per 64-byte L1 cache line across Coinbase, Robinhood, and Binance feeds.
+                <strong>Systems Architecture Note:</strong> Non-blocking slow-reader eviction prevents lagging subscribers from throttling the producer. A fixed 38-byte LE binary wire frame fans out with zero heap allocs on the decode path. Live BTC-USD L2 comes from Coinbase Exchange (WebSocket on long-running hosts; REST snapshots on Vercel).
             </div>
         </div>
 
@@ -261,7 +261,6 @@
                                 <label>Strategy:</label>
                                 <select id="cfg-strategy" style="padding: 2px; border: 1px solid #000;">
                                     <option value="OBI">OBI Threshold (HFT)</option>
-                                    <option value="LLM">Gemini LLM (AI Decision)</option>
                                 </select>
                             </div>
                             <div>
@@ -340,7 +339,7 @@
         <section class="paper-section">
             <h2>3. Multi-Consumer Ring Buffer Perimeter Inspection</h2>
             <p>
-                Real-time visual inspection of 32 pre-allocated circular memory slots and 4 concurrent, non-blocking sequence pointers (Writer, Scalping Bot, Indicator Engine, Risk Auditor) ingesting multi-venue market feeds (Coinbase, Robinhood, Binance).
+                Real-time visual inspection of 32 pre-allocated circular memory slots and 4 concurrent sequence pointers (Writer, Scalping Bot, Indicator Engine, Risk Auditor) ingesting live Coinbase BTC-USD L2.
             </p>
 
             <!-- Telemetry & Atomic Sequence Pointer Table -->
@@ -422,7 +421,7 @@
                                 L1 Density: <strong>1.6 Structs / 64B Cache Line</strong>
                             </div>
                             <div style="background: #ffffff; border: 1px solid #cbd5e1; padding: 4px 6px;">
-                                Wire Serializer: <strong>FlatBuffers (1.03 ns / 0 B/op)</strong>
+                                Wire Serializer: <strong>Binary LE (1.03 ns / 0 B/op)</strong>
                             </div>
                             <div style="background: #ffffff; border: 1px solid #cbd5e1; padding: 4px 6px;">
                                 Evicted Slow Readers: <strong id="telemetry-evicted-count" style="color: #b25900;">0 events</strong>
@@ -433,7 +432,7 @@
 
                 <!-- Column 2: Live Multi-Venue Trade Ingress Stream -->
                 <div style="flex: 1; width: 40%;">
-                    <h3>3.2 Ingress Multi-Venue Stream</h3>
+                    <h3>3.2 Ingress Coinbase Stream</h3>
                     <div class="feed-table-wrapper" style="max-height: 380px;">
                         <table class="academic-table compact" id="live-trades-table">
                             <thead>
@@ -445,7 +444,7 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr><td colspan="4" style="text-align: center; color: var(--text-dim);">Waiting for multi-venue transaction stream...</td></tr>
+                                <tr><td colspan="4" style="text-align: center; color: var(--text-dim);">Waiting for Coinbase BTC-USD stream...</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -503,7 +502,7 @@
                             <th>Simple Fan V3</th>
                             <th>RingBuffer V6</th>
                             <th>RB Eviction</th>
-                            <th>FlatBuffers</th>
+                            <th>Binary Wire</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -532,7 +531,7 @@
                             <th>Simple Fan V3</th>
                             <th>RingBuffer V6</th>
                             <th>RB Eviction</th>
-                            <th>FlatBuffers</th>
+                            <th>Binary Wire</th>
                         </tr>
                     </thead>
                     <tbody>
