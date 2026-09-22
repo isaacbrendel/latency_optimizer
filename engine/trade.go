@@ -130,7 +130,7 @@ type CompactTrade struct {
 	SymbolID  uint8  // 1 byte  (Offset 34) - 0: BTC-USD, 1: ETH-USD
 	Side      uint8  // 1 byte  (Offset 35) - 0: BUY/Bid, 1: SELL/Ask
 	Flags     uint8  // 1 byte  (Offset 36) - Bit 0: IsSnapshot, Bit 1: Aggregated
-	VenueID   uint8  // 1 byte  (Offset 37) - 0: Coinbase, 1: Robinhood, 2: Binance
+	VenueID   uint8  // 1 byte  (Offset 37) - 0: Coinbase (live); 1/2 reserved synthetic mock only
 }
 
 // CoinbaseL2Snapshot represents the initial full order book snapshot from Coinbase WS.

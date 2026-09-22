@@ -40,7 +40,7 @@
                 <div class="stress-stat">
                     <span class="stat-num text-purple">1.03 ns</span>
                     <span class="stat-lbl">Zero-Copy Wire</span>
-                    <span class="stat-sub">FlatBuffers Serializer</span>
+                    <span class="stat-sub">Binary Wire Serializer</span>
                 </div>
                 <div class="stress-stat">
                     <span class="stat-num text-orange">0 Gaps</span>
@@ -116,11 +116,11 @@
             <!-- Phase 5 -->
             <div style="border: 1px solid #cbd5e1; padding: 16px; margin-bottom: 16px; background: #ffffff;">
                 <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #cbd5e1; padding-bottom: 6px; margin-bottom: 10px;">
-                    <strong style="font-size: 0.9rem; font-family: var(--font-sans); color: #0f172a;">Phase 5: FlatBuffers Zero-Copy Binary Wire Format</strong>
+                    <strong style="font-size: 0.9rem; font-family: var(--font-sans); color: #0f172a;">Phase 5: Binary Wire Format</strong>
                     <span style="font-family: var(--font-mono); font-size: 0.72rem; background: #f0fdf4; color: #005f00; padding: 2px 8px; font-weight: bold;">1.03 ns / op &bull; 0 B/op &bull; 0 Allocs</span>
                 </div>
                 <p style="font-size: 0.85rem; line-height: 1.5; color: #334155; margin-bottom: 8px;">
-                    <strong>Design:</strong> Defined a binary FlatBuffers schema (<code>trade.fbs</code>) and implemented zero-allocation accessor methods in <code>flatbuffers_trade.go</code>.
+                    <strong>Design:</strong> Defined a fixed 38-byte LE binary wire frame and implemented zero-allocation encode/decode in <code>flatbuffers_trade.go</code> (hand-rolled LE, not generated FlatBuffers).
                 </p>
                 <ul style="font-size: 0.82rem; font-family: var(--font-sans); color: #475569; margin-left: 1.2rem; line-height: 1.5;">
                     <li><strong>Speedup:</strong> Bypasses JSON unmarshaling and reflection, decoding binary fields in <strong>1.03 nanoseconds</strong> with zero heap allocations.</li>
@@ -145,7 +145,7 @@
                     <span style="font-family: var(--font-mono); font-size: 0.72rem; background: #faf5ff; color: #4b0082; font-weight: bold;">4 Concurrent Consumers &bull; In-place DOM Updates</span>
                 </div>
                 <p style="font-size: 0.85rem; line-height: 1.5; color: #334155; margin-bottom: 8px;">
-                    <strong>Design:</strong> Integrated multi-venue data streams from <strong>Coinbase (`CB`)</strong>, <strong>Robinhood (`RH`)</strong>, and <strong>Binance (`BN`)</strong> into 4 concurrent non-blocking readers (<code>W</code>, <code>BOT</code>, <code>IND</code>, <code>AUDIT</code>). Upgraded Section 3.1 with an atomic pointer telemetry table, locked container bounds, and in-place DOM node updates to eliminate layout quivering.
+                    <strong>Design:</strong> Integrated Coinbase Exchange BTC-USD L2 (<strong>CB</strong>) with optional synthetic venue tags in mock mode into 4 concurrent non-blocking readers (<code>W</code>, <code>BOT</code>, <code>IND</code>, <code>AUDIT</code>). Upgraded Section 3.1 with an atomic pointer telemetry table, locked container bounds, and in-place DOM node updates to eliminate layout quivering.
                 </p>
             </div>
         </section>
@@ -201,7 +201,7 @@
                             <td style="padding: 6px; color: #005f00; font-weight: bold;">Minimal (Non-blocking Reader Fast-Forward)</td>
                         </tr>
                         <tr style="background: #f0fdf4;">
-                            <td style="padding: 6px; font-weight: bold;">Phase 6: FlatBuffers Zero-Copy Wire</td>
+                            <td style="padding: 6px; font-weight: bold;">Phase 6: Binary Wire Fan-out</td>
                             <td style="padding: 6px; font-weight: bold; color: #005f00;">1.03 ns</td>
                             <td style="padding: 6px; font-weight: bold; color: #005f00;">0 B</td>
                             <td style="padding: 6px; font-weight: bold; color: #005f00;">0</td>

@@ -1,3 +1,9 @@
+
+function wireFanoutResult(results) {
+    if (!results) return { timeNs: 0, allocs: 0, bytesAlloc: 0 };
+    return results.BinaryWireFanout || results.FlatBuffersZeroCopy || { timeNs: 0, allocs: 0, bytesAlloc: 0 };
+}
+
 // Academic Metric Tracker & Live Proof-of-Work Controller
 
 let chartInstances = {};
@@ -85,7 +91,7 @@ function renderAcademicTables(data) {
             const t3 = p.results.SimpleFanV3 || { timeNs: 0, allocs: 0, bytesAlloc: 0 };
             const t4 = p.results.RingBufferV6 || { timeNs: 0, allocs: 0, bytesAlloc: 0 };
             const t5 = p.results.RingBufferEviction || { timeNs: 0, allocs: 0, bytesAlloc: 0 };
-            const t6 = p.results.FlatBuffersZeroCopy || { timeNs: 0, allocs: 0, bytesAlloc: 0 };
+            const t6 = wireFanoutResult(p.results);
 
             const rowTime = document.createElement('tr');
             rowTime.innerHTML = `
@@ -137,7 +143,7 @@ function renderAcademicTables(data) {
             const t3 = p.results.SimpleFanV3 || { timeNs: 0, allocs: 0, bytesAlloc: 0 };
             const t4 = p.results.RingBufferV6 || { timeNs: 0, allocs: 0, bytesAlloc: 0 };
             const t5 = p.results.RingBufferEviction || { timeNs: 0, allocs: 0, bytesAlloc: 0 };
-            const t6 = p.results.FlatBuffersZeroCopy || { timeNs: 0, allocs: 0, bytesAlloc: 0 };
+            const t6 = wireFanoutResult(p.results);
 
             const rowTime = document.createElement('tr');
             rowTime.innerHTML = `
@@ -263,7 +269,7 @@ function renderAcademicCharts(data) {
                     { label: 'SimpleFan V3', data: data.tradesScaling.points.map(p => getRes(p, 'SimpleFanV3').timeNs / 1e6), borderColor: colors.sfV3, backgroundColor: 'transparent', borderWidth: 1.5, pointRadius: 4 },
                     { label: 'RingBuffer V6', data: data.tradesScaling.points.map(p => getRes(p, 'RingBufferV6').timeNs / 1e6), borderColor: colors.rbV6, backgroundColor: 'transparent', borderWidth: 2.0, pointRadius: 5 },
                     { label: 'RB Eviction Mode', data: data.tradesScaling.points.map(p => getRes(p, 'RingBufferEviction').timeNs / 1e6), borderColor: colors.rbEviction, backgroundColor: 'transparent', borderWidth: 2.0, pointRadius: 5 },
-                    { label: 'FlatBuffers Zero-Copy', data: data.tradesScaling.points.map(p => getRes(p, 'FlatBuffersZeroCopy').timeNs / 1e6), borderColor: colors.flatBuffers, backgroundColor: 'transparent', borderWidth: 2.0, pointRadius: 5 }
+                    { label: 'Binary Wire Fan-out', data: data.tradesScaling.points.map(p => wireFanoutResult(p.results).timeNs / 1e6), borderColor: colors.flatBuffers, backgroundColor: 'transparent', borderWidth: 2.0, pointRadius: 5 }
                 ]
             },
             options: {
@@ -293,7 +299,7 @@ function renderAcademicCharts(data) {
                     { label: 'SimpleFan V3', data: data.tradesScaling.points.map(p => getRes(p, 'SimpleFanV3').allocs), borderColor: colors.sfV3, backgroundColor: 'transparent', borderWidth: 1.2, pointRadius: 3 },
                     { label: 'RingBuffer V6', data: data.tradesScaling.points.map(p => getRes(p, 'RingBufferV6').allocs), borderColor: colors.rbV6, backgroundColor: 'transparent', borderWidth: 1.8, pointRadius: 4 },
                     { label: 'RB Eviction', data: data.tradesScaling.points.map(p => getRes(p, 'RingBufferEviction').allocs), borderColor: colors.rbEviction, backgroundColor: 'transparent', borderWidth: 1.8, pointRadius: 4 },
-                    { label: 'FlatBuffers', data: data.tradesScaling.points.map(p => getRes(p, 'FlatBuffersZeroCopy').allocs), borderColor: colors.flatBuffers, backgroundColor: 'transparent', borderWidth: 1.8, pointRadius: 4 }
+                    { label: 'Binary Wire', data: data.tradesScaling.points.map(p => wireFanoutResult(p.results).allocs), borderColor: colors.flatBuffers, backgroundColor: 'transparent', borderWidth: 1.8, pointRadius: 4 }
                 ]
             },
             options: {
@@ -323,7 +329,7 @@ function renderAcademicCharts(data) {
                     { label: 'SimpleFan V3', data: data.tradesScaling.points.map(p => getRes(p, 'SimpleFanV3').bytesAlloc / 1024), borderColor: colors.sfV3, backgroundColor: 'transparent', borderWidth: 1.2, pointRadius: 3 },
                     { label: 'RingBuffer V6', data: data.tradesScaling.points.map(p => getRes(p, 'RingBufferV6').bytesAlloc / 1024), borderColor: colors.rbV6, backgroundColor: 'transparent', borderWidth: 1.8, pointRadius: 4 },
                     { label: 'RB Eviction', data: data.tradesScaling.points.map(p => getRes(p, 'RingBufferEviction').bytesAlloc / 1024), borderColor: colors.rbEviction, backgroundColor: 'transparent', borderWidth: 1.8, pointRadius: 4 },
-                    { label: 'FlatBuffers', data: data.tradesScaling.points.map(p => getRes(p, 'FlatBuffersZeroCopy').bytesAlloc / 1024), borderColor: colors.flatBuffers, backgroundColor: 'transparent', borderWidth: 1.8, pointRadius: 4 }
+                    { label: 'Binary Wire', data: data.tradesScaling.points.map(p => wireFanoutResult(p.results).bytesAlloc / 1024), borderColor: colors.flatBuffers, backgroundColor: 'transparent', borderWidth: 1.8, pointRadius: 4 }
                 ]
             },
             options: {
@@ -353,7 +359,7 @@ function renderAcademicCharts(data) {
                     { label: 'SimpleFan V3', data: data.subscribersScaling.points.map(p => getRes(p, 'SimpleFanV3').timeNs / 1e6), borderColor: colors.sfV3, backgroundColor: 'transparent', borderWidth: 1.2, pointRadius: 3 },
                     { label: 'RingBuffer V6', data: data.subscribersScaling.points.map(p => getRes(p, 'RingBufferV6').timeNs / 1e6), borderColor: colors.rbV6, backgroundColor: 'transparent', borderWidth: 1.8, pointRadius: 4 },
                     { label: 'RB Eviction', data: data.subscribersScaling.points.map(p => getRes(p, 'RingBufferEviction').timeNs / 1e6), borderColor: colors.rbEviction, backgroundColor: 'transparent', borderWidth: 1.8, pointRadius: 4 },
-                    { label: 'FlatBuffers', data: data.subscribersScaling.points.map(p => getRes(p, 'FlatBuffersZeroCopy').timeNs / 1e6), borderColor: colors.flatBuffers, backgroundColor: 'transparent', borderWidth: 1.8, pointRadius: 4 }
+                    { label: 'Binary Wire', data: data.subscribersScaling.points.map(p => wireFanoutResult(p.results).timeNs / 1e6), borderColor: colors.flatBuffers, backgroundColor: 'transparent', borderWidth: 1.8, pointRadius: 4 }
                 ]
             },
             options: {
@@ -383,7 +389,7 @@ function renderAcademicCharts(data) {
                     { label: 'SimpleFan V3', data: data.subscribersScaling.points.map(p => getRes(p, 'SimpleFanV3').allocs), borderColor: colors.sfV3, backgroundColor: 'transparent', borderWidth: 1.2, pointRadius: 3 },
                     { label: 'RingBuffer V6', data: data.subscribersScaling.points.map(p => getRes(p, 'RingBufferV6').allocs), borderColor: colors.rbV6, backgroundColor: 'transparent', borderWidth: 1.8, pointRadius: 4 },
                     { label: 'RB Eviction', data: data.subscribersScaling.points.map(p => getRes(p, 'RingBufferEviction').allocs), borderColor: colors.rbEviction, backgroundColor: 'transparent', borderWidth: 1.8, pointRadius: 4 },
-                    { label: 'FlatBuffers', data: data.subscribersScaling.points.map(p => getRes(p, 'FlatBuffersZeroCopy').allocs), borderColor: colors.flatBuffers, backgroundColor: 'transparent', borderWidth: 1.8, pointRadius: 4 }
+                    { label: 'Binary Wire', data: data.subscribersScaling.points.map(p => wireFanoutResult(p.results).allocs), borderColor: colors.flatBuffers, backgroundColor: 'transparent', borderWidth: 1.8, pointRadius: 4 }
                 ]
             },
             options: {
@@ -988,7 +994,7 @@ function runStaticTradingBotSimulation() {
     
     const strategyLabelEl = document.getElementById('bot-strategy');
     if (strategyLabelEl) {
-        strategyLabelEl.innerText = (demoState.strategy === "LLM") ? "Gemini LLM (AI Decision)" : "Order Book Imbalance (OBI) HFT";
+        strategyLabelEl.innerText = "Order Book Imbalance (OBI) HFT";
     }
 
     const signalEl = document.getElementById('bot-signal');
@@ -1028,22 +1034,12 @@ function runStaticTradingBotSimulation() {
         }
 
         let signalReason = "";
-        if (demoState.strategy === "LLM") {
-            if (demoState.signal === 'BUY') {
-                signalReason = `Gemini 2.5 Flash: Bullish divergence confirmed. OBI (+${(demoState.obi * 100).toFixed(2)}%) shows aggressive bid wall aggregation. Spread ($${demoState.spread.toFixed(2)}) tightening. Target long entry.`;
-            } else if (demoState.signal === 'SELL') {
-                signalReason = `Gemini 2.5 Flash: Bearish exhaust pattern. Heavy ask wall building (OBI = ${(demoState.obi * 100).toFixed(2)}%). Liquidity support fading. Executing market exit to preserve capital.`;
-            } else {
-                signalReason = `Gemini 2.5 Flash: Market consolidation. OBI (${(demoState.obi * 100).toFixed(2)}%) inside neutral bounds. Standing by in Cash to avoid high-frequency fee drag.`;
-            }
+        if (demoState.signal === 'BUY') {
+            signalReason = "OBI is extremely bullish (>= 0.15) due to massive bid depth. Executing market BUY order to fill BTC position.";
+        } else if (demoState.signal === 'SELL') {
+            signalReason = "OBI is extremely bearish (<= -0.15) due to heavy ask walls. Executed market SELL order to liquidate BTC position.";
         } else {
-            if (demoState.signal === 'BUY') {
-                signalReason = "OBI is extremely bullish (>= 0.15) due to massive bid depth. Executing market BUY order to fill BTC position.";
-            } else if (demoState.signal === 'SELL') {
-                signalReason = "OBI is extremely bearish (<= -0.15) due to heavy ask walls. Executed market SELL order to liquidate BTC position.";
-            } else {
-                signalReason = "OBI is in neutral bounds (-0.15 < OBI < 0.15). Standing by to avoid overhead costs.";
-            }
+            signalReason = "OBI is in neutral bounds (-0.15 < OBI < 0.15). Standing by to avoid overhead costs.";
         }
 
         commentaryEl.innerHTML = `
@@ -1077,11 +1073,37 @@ function runStaticTradingBotSimulation() {
 }
 
 function startProofOfWorkPolling() {
-    // Poll the Ring Buffer slot mappings, Coinbase trades, Gemini AI, and the Trading Bot state
+    // Poll ring buffer, Coinbase trades, L2 book, feed telemetry, and bot state
     setInterval(pollRingBufferState, 1000);
     setInterval(pollCoinbaseFeed, 1000);
-    setInterval(pollGeminiSentiment, 200); // 200ms for live L2 updates
+    setInterval(pollOrderBookLive, 200);
     setInterval(pollTradingBotState, 1000);
+    setInterval(pollFeedTelemetry, 1500);
+    pollFeedTelemetry();
+}
+
+async function pollFeedTelemetry() {
+    const el = document.getElementById('feed-live-status');
+    if (!el) return;
+    if (isStaticDemo) {
+        el.innerHTML = '<span class="pulse-dot"></span> Offline demo (no live backend)';
+        return;
+    }
+    try {
+        const response = await fetch(getApiUrl('/api/feed'));
+        if (!response.ok) return;
+        const data = await response.json();
+        const status = data.status || 'unknown';
+        const mode = data.mode || '';
+        const seq = data.lastSequence || 0;
+        if (status === 'live' || status === 'live_rest') {
+            el.innerHTML = `<span class="pulse-dot"></span> LIVE Coinbase BTC-USD (${mode || status}) · seq ${seq}`;
+        } else {
+            el.innerHTML = `<span class="pulse-dot"></span> Feed: ${status}${mode ? ' / ' + mode : ''}`;
+        }
+    } catch (err) {
+        el.innerHTML = '<span class="pulse-dot"></span> Feed unreachable';
+    }
 }
 
 async function pollRingBufferState() {
@@ -1147,7 +1169,7 @@ async function pollCoinbaseFeed() {
         if (!tbody) return;
 
         if (!trades || trades.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="4" style="text-align: center;">Polling multi-venue transaction stream...</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="4" style="text-align: center;">Polling Coinbase BTC-USD stream...</td></tr>`;
             return;
         }
         latestPrice = trades[trades.length - 1].Price || trades[trades.length - 1].price || 0;
@@ -1174,7 +1196,7 @@ async function pollCoinbaseFeed() {
     }
 }
 
-async function pollGeminiSentiment() {
+async function pollOrderBookLive() {
     if (isStaticDemo) {
         runStaticOrderBookSimulation();
         return;
@@ -1361,7 +1383,7 @@ async function pollTradingBotState() {
         
         const strategyLabelEl = document.getElementById('bot-strategy');
         if (strategyLabelEl) {
-            strategyLabelEl.innerText = (data.strategy === "LLM") ? "Gemini LLM (AI Decision)" : "Order Book Imbalance (OBI) HFT";
+            strategyLabelEl.innerText = "Order Book Imbalance (OBI) HFT";
         }
         const strategySelectEl = document.getElementById('cfg-strategy');
         if (strategySelectEl && document.activeElement !== strategySelectEl) {
