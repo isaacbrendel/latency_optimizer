@@ -58,14 +58,17 @@ go test -run=^$ -fuzz=FuzzFixedPointUSD -fuzztime=10s ./engine
 # Microbenchmarks (include p50/p99 via experiment runner)
 go test -bench=. -benchmem -count=5 ./engine/
 
-# Live server — Exchange L2 WebSocket is ON by default for long-running hosts
+# Live server — real Coinbase BTC-USD L2 is ON by default
 go build -o test_bin .
-./test_bin   # http://localhost:8080  (+ live BTC-USD L2)
+./test_bin   # http://localhost:8080
+#   long-running: WebSocket L2 (wss://ws-feed.exchange.coinbase.com)
+#   serverless (Vercel): REST L2 snapshots (https://api.exchange.coinbase.com)
 
 # Force mock (CI / offline):
 DISABLE_LIVE_FEED=1 ./test_bin
 
-# Serverless (Vercel) stays mock unless you set ENABLE_LIVE_FEED=1
+# Force WebSocket even on Vercel (usually not useful — connections are ephemeral):
+ENABLE_LIVE_FEED=1
 ```
 
 ### Scorecard (enforced in CI / proof tests)
@@ -110,7 +113,9 @@ go build -o test_bin .
 
 API: `/api/orderbook`, `/api/ring-buffer`, `/api/sentiment`, `/api/feed`, `/api/run-experiment` (single-flight; 429 if busy).
 
-Set `ENABLE_LIVE_FEED=1` to dial the Exchange WebSocket (`wss://ws-feed.exchange.coinbase.com` or `EXCHANGE_WS_URL`). Snapshot → delta apply with sequence-gap resync; mock producer yields while live.
+Live market data (unless `DISABLE_LIVE_FEED=1`):
+- **Long-running host:** Exchange WebSocket L2 (`ENABLE_LIVE_FEED=1` / default) with snapshot → delta + sequence-gap resync.
+- **Serverless (Vercel):** public REST L2 snapshots every ~1.5s / on each API request (`mode=live_rest`) — real BTC-USD prices without a persistent socket.
 
 ---
 

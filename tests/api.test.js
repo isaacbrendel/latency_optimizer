@@ -154,10 +154,14 @@ describe('Latency Optimizer REST & SSE API Integration Suite', () => {
     const data = await res.json();
     expect(data).toHaveProperty('status');
     expect(data).toHaveProperty('liveEnabled');
+    expect(data).toHaveProperty('restEnabled');
+    expect(data).toHaveProperty('mode');
     expect(data).toHaveProperty('productId');
     expect(data).toHaveProperty('gaps');
     expect(data).toHaveProperty('lastSequence');
     expect(data.liveEnabled).toBe(false); // Jest forces DISABLE_LIVE_FEED=1
+    expect(data.restEnabled).toBe(false);
+    expect(data.mode).toBe('mock');
     expect(typeof data.status).toBe('string');
   });
 

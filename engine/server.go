@@ -124,12 +124,18 @@ func EnsureInitialized() {
 		feedCancel = cancel
 		liveFeed = NewL2Feed("BTC-USD", OrderBookState, EngineState.rb, IndicatorStateVal)
 		go RunLiveL2Feed(ctx, liveFeed)
-		go runMockL2Producer()
+		if RestFeedEnabled() {
+			go runRESTSnapshotPoller(ctx, liveFeed)
+		} else {
+			go runMockL2Producer()
+		}
 		go runDashboardConsumer()
 		go runQuantConsumer()
 		go runAuditConsumer()
 		go runBotConsumer()
 	})
+	// Serverless: cold starts have no warm poller — refresh on every request path.
+	EnsureFreshMarketData()
 }
 
 func seedInitialMarketData() {
@@ -203,7 +209,10 @@ func initEngineState() {
 	BotStateVal.Commentary = "Waiting for next HFT signal cycle..."
 	BotStateVal.mu.Unlock()
 
-	seedInitialMarketData()
+	// Seed synthetic book only when live venue data is disabled (CI/Jest).
+	if !RestFeedEnabled() {
+		seedInitialMarketData()
+	}
 }
 
 func runMockL2Producer() {
@@ -493,6 +502,16 @@ func runBotConsumer() {
 }
 
 // Handlers for HTTP Endpoints
+func marketDataMode() string {
+	if !RestFeedEnabled() {
+		return "mock"
+	}
+	if atomic.LoadInt32(&wsConnected) == 1 {
+		return "websocket"
+	}
+	return "rest"
+}
+
 func HandleOrderBookAPI(w http.ResponseWriter, r *http.Request) {
 	EnsureInitialized()
 	seedInitialMarketData()
@@ -642,8 +661,11 @@ func HandleFeedAPI(w http.ResponseWriter, r *http.Request) {
 	}
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":       status,
+		"mode":         marketDataMode(),
 		"liveEnabled":  LiveFeedEnabled(),
+		"restEnabled":  RestFeedEnabled(),
 		"wsURL":        LiveFeedURL(),
+		"restURL":      LiveRESTURL(),
 		"productId":    "BTC-USD",
 		"messages":     stats.Messages,
 		"snapshots":    stats.Snapshots,

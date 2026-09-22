@@ -104,6 +104,12 @@ func TestProof_HTTPFeedAPI(t *testing.T) {
 	if payload["liveEnabled"] != false {
 		t.Fatalf("expected liveEnabled=false with DISABLE_LIVE_FEED, got %v", payload["liveEnabled"])
 	}
+	if payload["restEnabled"] != false {
+		t.Fatalf("expected restEnabled=false with DISABLE_LIVE_FEED, got %v", payload["restEnabled"])
+	}
+	if payload["mode"] != "mock" {
+		t.Fatalf("expected mode=mock, got %v", payload["mode"])
+	}
 	if payload["productId"] != "BTC-USD" {
 		t.Fatalf("productId=%v", payload["productId"])
 	}
