@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Featured — readable</title>
+  <style>
+    :root {
+      --bg-page: #fbfbf9;
+      --bg-paper: #ffffff;
+      --border: #d3d3d3;
+      --ink: #000;
+      --muted: #222;
+      --serif: "Times New Roman", Times, Georgia, serif;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; border-radius: 0 !important; box-shadow: none !important; }
+    html, body {
+      width: 1200px; height: 630px; overflow: hidden;
+      background: var(--bg-page); color: var(--ink); font-family: var(--serif);
+    }
+    .stage {
+      width: 1200px; height: 630px; padding: 48px 56px; background: var(--bg-page);
+    }
+    .paper {
+      width: 100%; height: 100%;
+      background: var(--bg-paper); border: 1px solid var(--border);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      text-align: center; padding: 48px 72px;
+    }
+    h1 {
+      font-weight: 400; font-size: 100px; line-height: 1.02;
+      letter-spacing: -0.03em; margin-bottom: 32px;
+    }
+    .line {
+      font-style: italic; font-size: 40px; line-height: 1.25; color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <div class="paper">
+      <h1>Low-Latency<br />Market Data Engine</h1>
+      <p class="line">Lock-free ring buffer in Go</p>
+    </div>
+  </div>
+</body>
+</html>
