@@ -33,15 +33,15 @@ jobs:
 
       - name: Extended Soak & Stress Concurrency Test
         run: |
-          echo "Executing 50,000-trade 32-consumer concurrency soak test..."
-          go test -race -v -run 'TestSoak|TestStress|TestHigh' -timeout 20m ./...
+          echo "Executing soak / stress concurrency tests..."
+          go test -race -v -run 'TestSoak|TestStress|TestHigh|TestConcurrent|TestRingBuffer_NoLoss' -timeout 20m ./engine
 
       - name: Extended Invariant Fuzzing (30s per harness)
         run: |
-          echo "Fuzzing RingBuffer wire encoding & sequence boundaries..."
-          go test -run=^# -fuzz=FuzzRingBufferPublishRead -fuzztime=30s .
+          echo "Fuzzing ring buffer wire encoding & sequence boundaries..."
+          go test -run=^$ -fuzz=FuzzRingBufferPublishRead -fuzztime=30s ./engine
           echo "Fuzzing fixed-point USD/BTC numeric precision..."
-          go test -run=^# -fuzz=FuzzFixedPointUSD -fuzztime=30s .
+          go test -run=^$ -fuzz=FuzzFixedPointUSD -fuzztime=30s ./engine
 
       - name: Set up Node.js 22
         uses: actions/setup-node@v4

@@ -1,4 +1,4 @@
-package main
+package engine
 
 import (
 	"context"
@@ -47,7 +47,7 @@ func runProducerConsumersTest(t *testing.T, numConsumers int, numTrades int, buf
 			rb.Read(reader, int64(numTrades), nil, func(ct CompactTrade) {
 				receivedIDs[readerIdx] = append(receivedIDs[readerIdx], ct.ID)
 			})
-		}(i, rb.readers[i])
+		}(i, rb.Readers[i])
 	}
 
 	// Producer publishes batches
@@ -122,7 +122,7 @@ func TestConcurrent_MixedWaitStrategies(t *testing.T) {
 				count++
 			})
 			receivedCounts[idx] = count
-		}(i, rb.readers[i])
+		}(i, rb.Readers[i])
 	}
 
 	for j := 0; j < len(trades); j += batchSize {
@@ -149,18 +149,18 @@ func TestConcurrent_SequenceBarrierPipeline(t *testing.T) {
 	batchSize := 64
 
 	rb := NewRingBufferV6(bufferSize, 3)
-	parserReader := rb.readers[0] // Stage 1: Market data parse
-	quantReader := rb.readers[1]  // Stage 2: Quant indicator calculation (depends on Parser)
-	botReader := rb.readers[2]    // Stage 3: HFT Bot (depends on Quant)
+	parserReader := rb.Readers[0] // Stage 1: Market data parse
+	quantReader := rb.Readers[1]  // Stage 2: Quant indicator calculation (depends on Parser)
+	botReader := rb.Readers[2]    // Stage 3: HFT Bot (depends on Quant)
 
 	// Barrier 1 for Stage 2: wait for Stage 1 (parser)
 	quantBarrier := NewSequenceBarrier(func() int64 {
-		return atomic.LoadInt64(&parserReader.readSeq)
+		return atomic.LoadInt64(&parserReader.ReadSeq)
 	})
 
 	// Barrier 2 for Stage 3: wait for Stage 2 (quant)
 	botBarrier := NewSequenceBarrier(func() int64 {
-		return atomic.LoadInt64(&quantReader.readSeq)
+		return atomic.LoadInt64(&quantReader.ReadSeq)
 	})
 
 	trades := generateTestCompactTrades(numTrades)
@@ -183,8 +183,8 @@ func TestConcurrent_SequenceBarrierPipeline(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		rb.Read(quantReader, int64(numTrades), quantBarrier, func(ct CompactTrade) {
-			pSeq := atomic.LoadInt64(&parserReader.readSeq)
-			qSeq := atomic.LoadInt64(&quantReader.readSeq)
+			pSeq := atomic.LoadInt64(&parserReader.ReadSeq)
+			qSeq := atomic.LoadInt64(&quantReader.ReadSeq)
 			if qSeq > pSeq {
 				atomic.AddInt64(&barrierViolations, 1)
 			}
@@ -196,8 +196,8 @@ func TestConcurrent_SequenceBarrierPipeline(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		rb.Read(botReader, int64(numTrades), botBarrier, func(ct CompactTrade) {
-			qSeq := atomic.LoadInt64(&quantReader.readSeq)
-			bSeq := atomic.LoadInt64(&botReader.readSeq)
+			qSeq := atomic.LoadInt64(&quantReader.ReadSeq)
+			bSeq := atomic.LoadInt64(&botReader.ReadSeq)
 			if bSeq > qSeq {
 				atomic.AddInt64(&barrierViolations, 1)
 			}
@@ -263,8 +263,8 @@ func TestConcurrent_CleanShutdownUnderLoad(t *testing.T) {
 				case <-ctx.Done():
 					return
 				default:
-					currSeq := atomic.LoadInt64(&reader.readSeq)
-					wSeq := atomic.LoadInt64(&rb.writeSeq)
+					currSeq := atomic.LoadInt64(&reader.ReadSeq)
+					wSeq := atomic.LoadInt64(&rb.WriteSeq)
 					if currSeq < wSeq {
 						rb.Read(reader, wSeq, nil, func(ct CompactTrade) {})
 					} else {
@@ -272,7 +272,7 @@ func TestConcurrent_CleanShutdownUnderLoad(t *testing.T) {
 					}
 				}
 			}
-		}(rb.readers[i])
+		}(rb.Readers[i])
 	}
 
 	wg.Wait()
@@ -306,7 +306,7 @@ func TestSoak_ExtendedConcurrencyStability(t *testing.T) {
 				localCount++
 			})
 			receivedCounts[idx] = localCount
-		}(i, rb.readers[i])
+		}(i, rb.Readers[i])
 	}
 
 	// Producer publishes with varying burst sizes

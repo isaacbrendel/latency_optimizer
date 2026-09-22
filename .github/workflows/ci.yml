@@ -26,10 +26,10 @@ jobs:
       - name: Go race + tests
         run: go test -race -count=1 ./...
 
-      - name: Short fuzz
+      - name: Short fuzz (must pass)
         run: |
-          go test -run=^$ -fuzz=FuzzRingBufferPublishRead -fuzztime=5s . || true
-          go test -run=^$ -fuzz=FuzzFixedPointUSD -fuzztime=5s . || true
+          go test -run=^$ -fuzz=FuzzRingBufferPublishRead -fuzztime=5s ./engine
+          go test -run=^$ -fuzz=FuzzFixedPointUSD -fuzztime=5s ./engine
 
       - name: Build test binary for Jest
         run: go build -v -o server_test_bin .

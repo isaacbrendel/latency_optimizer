@@ -1,4 +1,4 @@
-package main
+package engine
 
 import (
 	"encoding/json"
@@ -17,27 +17,27 @@ func TestRingBuffer_Initialization(t *testing.T) {
 		t.Run(fmt.Sprintf("Size_%d", size), func(t *testing.T) {
 			numReaders := 4
 			rb := NewRingBufferV6(size, numReaders)
-			if rb.size != size {
-				t.Fatalf("expected size %d, got %d", size, rb.size)
+			if rb.Size != size {
+				t.Fatalf("expected size %d, got %d", size, rb.Size)
 			}
-			if rb.mask != size-1 {
-				t.Fatalf("expected mask %d, got %d", size-1, rb.mask)
+			if rb.Mask != size-1 {
+				t.Fatalf("expected mask %d, got %d", size-1, rb.Mask)
 			}
-			if len(rb.buffer) != int(size) {
-				t.Fatalf("expected buffer length %d, got %d", size, len(rb.buffer))
+			if len(rb.Buffer) != int(size) {
+				t.Fatalf("expected buffer length %d, got %d", size, len(rb.Buffer))
 			}
-			if len(rb.readers) != numReaders {
-				t.Fatalf("expected %d readers, got %d", numReaders, len(rb.readers))
+			if len(rb.Readers) != numReaders {
+				t.Fatalf("expected %d readers, got %d", numReaders, len(rb.Readers))
 			}
-			for i, r := range rb.readers {
-				if r.id != i {
-					t.Errorf("expected reader %d id %d, got %d", i, i, r.id)
+			for i, r := range rb.Readers {
+				if r.ID != i {
+					t.Errorf("expected reader %d id %d, got %d", i, i, r.ID)
 				}
-				if !r.blocking {
+				if !r.Blocking {
 					t.Errorf("expected reader %d to be blocking by default", i)
 				}
-				if atomic.LoadInt64(&r.readSeq) != 0 {
-					t.Errorf("expected reader %d readSeq 0, got %d", i, atomic.LoadInt64(&r.readSeq))
+				if atomic.LoadInt64(&r.ReadSeq) != 0 {
+					t.Errorf("expected reader %d readSeq 0, got %d", i, atomic.LoadInt64(&r.ReadSeq))
 				}
 			}
 		})
@@ -74,14 +74,14 @@ func TestRingBuffer_PublishAndRead_SingleItem(t *testing.T) {
 
 	rb.PublishBatch([]CompactTrade{expectedTrade})
 
-	if atomic.LoadInt64(&rb.writeSeq) != 1 {
-		t.Fatalf("expected writeSeq 1, got %d", atomic.LoadInt64(&rb.writeSeq))
+	if atomic.LoadInt64(&rb.WriteSeq) != 1 {
+		t.Fatalf("expected writeSeq 1, got %d", atomic.LoadInt64(&rb.WriteSeq))
 	}
 
 	var receivedTrade CompactTrade
 	var receivedCount int
 
-	rb.Read(rb.readers[0], 1, nil, func(ct CompactTrade) {
+	rb.Read(rb.Readers[0], 1, nil, func(ct CompactTrade) {
 		receivedTrade = ct
 		receivedCount++
 	})
@@ -165,7 +165,7 @@ func TestRingBuffer_PublishAndRead_Batch(t *testing.T) {
 						received = append(received, ct)
 					})
 					readerResults[idx] = received
-				}(rIdx, rb.readers[rIdx])
+				}(rIdx, rb.Readers[rIdx])
 			}
 
 			// Publish in batches
@@ -224,7 +224,7 @@ func TestRingBuffer_WrapAround(t *testing.T) {
 
 	go func() {
 		defer wg.Done()
-		rb.Read(rb.readers[0], int64(numTrades), nil, func(ct CompactTrade) {
+		rb.Read(rb.Readers[0], int64(numTrades), nil, func(ct CompactTrade) {
 			received = append(received, ct)
 		})
 	}()
@@ -269,13 +269,13 @@ func TestRingBuffer_SequenceMonotonicity(t *testing.T) {
 		go func(idx int, reader *RingBufferReader) {
 			defer wg.Done()
 			rb.Read(reader, int64(numTrades), nil, func(ct CompactTrade) {
-				currentSeq := atomic.LoadInt64(&reader.readSeq)
+				currentSeq := atomic.LoadInt64(&reader.ReadSeq)
 				if currentSeq < lastReadSeqs[idx] {
 					t.Errorf("reader %d sequence regressed from %d to %d", idx, lastReadSeqs[idx], currentSeq)
 				}
 				lastReadSeqs[idx] = currentSeq
 			})
-		}(r, rb.readers[r])
+		}(r, rb.Readers[r])
 	}
 
 	for i := 0; i < numTrades; i += 10 {
@@ -284,7 +284,7 @@ func TestRingBuffer_SequenceMonotonicity(t *testing.T) {
 			end = numTrades
 		}
 		rb.PublishBatch(trades[i:end])
-		currentWrite := atomic.LoadInt64(&rb.writeSeq)
+		currentWrite := atomic.LoadInt64(&rb.WriteSeq)
 		if currentWrite < lastWriteSeq {
 			t.Fatalf("writeSeq regressed from %d to %d", lastWriteSeq, currentWrite)
 		}
@@ -293,8 +293,8 @@ func TestRingBuffer_SequenceMonotonicity(t *testing.T) {
 
 	wg.Wait()
 
-	if atomic.LoadInt64(&rb.writeSeq) != int64(numTrades) {
-		t.Errorf("expected final writeSeq %d, got %d", numTrades, atomic.LoadInt64(&rb.writeSeq))
+	if atomic.LoadInt64(&rb.WriteSeq) != int64(numTrades) {
+		t.Errorf("expected final writeSeq %d, got %d", numTrades, atomic.LoadInt64(&rb.WriteSeq))
 	}
 }
 
@@ -302,7 +302,7 @@ func TestRingBuffer_SequenceMonotonicity(t *testing.T) {
 func TestRingBuffer_NonBlockingEviction(t *testing.T) {
 	bufferSize := int64(16)
 	rb := NewRingBufferV6(bufferSize, 1)
-	rb.readers[0].blocking = false // Configure as non-blocking market data reader
+	rb.Readers[0].Blocking = false // Configure as non-blocking market data reader
 
 	numTrades := 100
 	trades := make([]CompactTrade, numTrades)
@@ -316,12 +316,12 @@ func TestRingBuffer_NonBlockingEviction(t *testing.T) {
 	// Publish all 100 trades without the reader reading, forcing 100 - 16 = 84 overruns
 	rb.PublishBatchEvicting(trades)
 
-	evictedCount := atomic.LoadInt64(&rb.readers[0].evictedCount)
+	evictedCount := atomic.LoadInt64(&rb.Readers[0].EvictedCount)
 	if evictedCount == 0 {
 		t.Fatalf("expected evictedCount > 0, got %d", evictedCount)
 	}
 
-	readSeq := atomic.LoadInt64(&rb.readers[0].readSeq)
+	readSeq := atomic.LoadInt64(&rb.Readers[0].ReadSeq)
 	expectedMinSeq := int64(numTrades) - bufferSize
 	if readSeq < expectedMinSeq {
 		t.Fatalf("expected readSeq >= %d after eviction, got %d", expectedMinSeq, readSeq)
@@ -329,7 +329,7 @@ func TestRingBuffer_NonBlockingEviction(t *testing.T) {
 
 	// Reader consumes remaining valid items
 	var consumed []CompactTrade
-	rb.Read(rb.readers[0], int64(numTrades), nil, func(ct CompactTrade) {
+	rb.Read(rb.Readers[0], int64(numTrades), nil, func(ct CompactTrade) {
 		consumed = append(consumed, ct)
 	})
 
@@ -362,7 +362,7 @@ func TestRingBuffer_WaitStrategies(t *testing.T) {
 			done := make(chan struct{})
 
 			go func() {
-				rb.Read(rb.readers[0], 20, nil, func(ct CompactTrade) {
+				rb.Read(rb.Readers[0], 20, nil, func(ct CompactTrade) {
 					received = append(received, ct)
 				})
 				close(done)
@@ -450,11 +450,11 @@ func TestFixedPoint_ArithmeticAndJSON(t *testing.T) {
 // TestSequenceBarrier_Ordering verifies multi-stage consumer DAG dependency chains.
 func TestSequenceBarrier_Ordering(t *testing.T) {
 	rb := NewRingBufferV6(64, 2)
-	quantReader := rb.readers[0] // Stage 1
-	botReader := rb.readers[1]   // Stage 2 (depends on Stage 1)
+	quantReader := rb.Readers[0] // Stage 1
+	botReader := rb.Readers[1]   // Stage 2 (depends on Stage 1)
 
 	barrier := NewSequenceBarrier(func() int64 {
-		return atomic.LoadInt64(&quantReader.readSeq)
+		return atomic.LoadInt64(&quantReader.ReadSeq)
 	})
 
 	trades := []CompactTrade{

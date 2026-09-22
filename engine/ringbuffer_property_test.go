@@ -1,4 +1,4 @@
-package main
+package engine
 
 import (
 	"encoding/json"
@@ -34,13 +34,13 @@ func TestProperty_OccupancyBound(t *testing.T) {
 			go func(reader *RingBufferReader) {
 				defer wg.Done()
 				rb.Read(reader, int64(totalTrades), nil, func(ct CompactTrade) {
-					wSeq := atomic.LoadInt64(&rb.writeSeq)
-					rSeq := atomic.LoadInt64(&reader.readSeq)
+					wSeq := atomic.LoadInt64(&rb.WriteSeq)
+					rSeq := atomic.LoadInt64(&reader.ReadSeq)
 					if wSeq-rSeq > bufferSize {
 						atomic.AddInt64(&occupancyViolations, 1)
 					}
 				})
-			}(rb.readers[i])
+			}(rb.Readers[i])
 		}
 
 		// Random batch publication
@@ -97,7 +97,7 @@ func TestProperty_ZeroDuplicateDelivery(t *testing.T) {
 				receivedSets[rIdx][ct.ID]++
 				mu.Unlock()
 			})
-		}(i, rb.readers[i])
+		}(i, rb.Readers[i])
 	}
 
 	for idx := 0; idx < totalTrades; {
@@ -200,7 +200,7 @@ func FuzzRingBufferPublishRead(f *testing.F) {
 
 		go func() {
 			defer wg.Done()
-			rb.Read(rb.readers[0], int64(totalTrades), nil, func(ct CompactTrade) {
+			rb.Read(rb.Readers[0], int64(totalTrades), nil, func(ct CompactTrade) {
 				received = append(received, ct)
 			})
 		}()

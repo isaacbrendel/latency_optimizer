@@ -82,7 +82,7 @@ func RunExperimentSuite(tradeCounts []int, subscriberCounts []int, logger io.Wri
 			Results: make(map[string]BenchmarkResult),
 		}
 
-		implementations := []string{"SimpleFanV1", "SimpleFanV2", "SimpleFanV3", "RingBufferV6", "RingBufferEviction", "FlatBuffersZeroCopy"}
+		implementations := []string{"SimpleFanV1", "SimpleFanV2", "SimpleFanV3", "RingBufferV6", "RingBufferEviction", "BinaryWireFanout"}
 		for _, impl := range implementations {
 			fmt.Fprintf(logger, "  %-20s: running...\n", impl)
 			res, ok, reason := runSingleBenchmarkSafe(impl, trades, constSubscribers)
@@ -110,7 +110,7 @@ func RunExperimentSuite(tradeCounts []int, subscriberCounts []int, logger io.Wri
 			Results:     make(map[string]BenchmarkResult),
 		}
 
-		implementations := []string{"SimpleFanV1", "SimpleFanV2", "SimpleFanV3", "RingBufferV6", "RingBufferEviction", "FlatBuffersZeroCopy"}
+		implementations := []string{"SimpleFanV1", "SimpleFanV2", "SimpleFanV3", "RingBufferV6", "RingBufferEviction", "BinaryWireFanout"}
 		for _, impl := range implementations {
 			fmt.Fprintf(logger, "  %-20s: running...\n", impl)
 			res, ok, reason := runSingleBenchmarkSafe(impl, tradesForSubscribers, sc)
@@ -236,9 +236,10 @@ func runSingleBenchmark(impl string, trades []*Trade, numSubscribers int) Benchm
 		}
 
 	case "RingBufferEviction":
-		bufSize := int64(2048)
+		// Honest eviction path: small buffer, all non-blocking readers, PublishBatchEvicting.
+		// A deliberately slow reader forces cursor fast-forward; publisher never gates.
+		bufSize := int64(256)
 		rb := NewRingBufferV6(bufSize, numSubscribers)
-
 		compactTrades := make([]CompactTrade, len(trades))
 		for idx, t := range trades {
 			var side uint8 = 0
@@ -246,22 +247,21 @@ func runSingleBenchmark(impl string, trades []*Trade, numSubscribers int) Benchm
 				side = 1
 			}
 			compactTrades[idx] = CompactTrade{
-				ID:        t.ID,
-				Price:     ToUSD(t.Price),
-				Quantity:  ToBTC(t.Quantity),
-				Timestamp: t.Timestamp,
-				SymbolID:  0,
-				Side:      side,
+				ID: t.ID, Price: ToUSD(t.Price), Quantity: ToBTC(t.Quantity),
+				Timestamp: t.Timestamp, SymbolID: 0, Side: side,
 			}
 		}
-
 		for i := 0; i < numSubscribers; i++ {
-			go func(reader *RingBufferReader) {
+			rb.Readers[i].Blocking = false
+			go func(reader *RingBufferReader, slow bool) {
 				rb.Read(reader, int64(len(compactTrades)), nil, func(ct CompactTrade) {
+					if slow {
+						time.Sleep(50 * time.Microsecond)
+					}
 					ProcessCompactTrade(ct)
 				})
 				wg.Done()
-			}(rb.Readers[i])
+			}(rb.Readers[i], i == 0)
 		}
 		batchSize := 128
 		for i := 0; i < len(compactTrades); i += batchSize {
@@ -269,27 +269,32 @@ func runSingleBenchmark(impl string, trades []*Trade, numSubscribers int) Benchm
 			if end > len(compactTrades) {
 				end = len(compactTrades)
 			}
-			rb.PublishBatch(compactTrades[i:end])
+			rb.PublishBatchEvicting(compactTrades[i:end])
 		}
 
-	case "FlatBuffersZeroCopy":
-		ct := CompactTrade{
-			ID:        999988,
-			Price:     ToUSD(65432.10),
-			Quantity:  ToBTC(1.5),
-			Timestamp: 1700000000,
-			Sequence:  42,
-			SymbolID:  0,
-			Side:      1,
-		}
-		buf := make([]byte, 38)
-		for i := 0; i < len(trades); i++ {
-			encoded := EncodeFlatTrade(buf, ct)
-			_ = BinaryFlatTrade(encoded).ReadID()
-			_ = BinaryFlatTrade(encoded).ReadPrice()
+	case "BinaryWireFanout":
+		// Fair fan-out: encode once per trade, every subscriber decodes the shared frame.
+		// This is a binary codec microbench under the same subscriber×trade load shape —
+		// not a pretend zero-cost disruptor substitute.
+		frames := make([][]byte, len(trades))
+		for idx, t := range trades {
+			var side uint8
+			if t.ID%2 != 0 {
+				side = 1
+			}
+			ct := CompactTrade{
+				ID: t.ID, Price: ToUSD(t.Price), Quantity: ToBTC(t.Quantity),
+				Timestamp: t.Timestamp, SymbolID: 0, Side: side, Sequence: uint16(idx),
+			}
+			frames[idx] = EncodeFlatTrade(make([]byte, 38), ct)
 		}
 		for i := 0; i < numSubscribers; i++ {
-			wg.Done()
+			go func() {
+				for _, f := range frames {
+					ProcessCompactTrade(BinaryFlatTrade(f).DecodeToCompactTrade())
+				}
+				wg.Done()
+			}()
 		}
 	}
 
