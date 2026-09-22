@@ -2,132 +2,44 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Featured — Latency Optimizer</title>
+  <title>Featured — readable</title>
   <style>
-    /*
-      LinkedIn Featured card — purpose:
-      Stop the scroll by looking like the real workstation title page,
-      readable at ~300px, no metric figures.
-      Materials sampled from latency-optimizer.vercel.app
-    */
     :root {
       --bg-page: #fbfbf9;
       --bg-paper: #ffffff;
       --border: #d3d3d3;
-      --ink: #000000;
-      --dim: #555555;
-      --muted: #222222;
-      --navy: #000080;
+      --ink: #000;
+      --muted: #222;
       --serif: "Times New Roman", Times, Georgia, serif;
-      --sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
-      --mono: "Courier New", Courier, Monaco, monospace;
     }
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      border-radius: 0 !important;
-      box-shadow: none !important;
-      text-shadow: none !important;
-    }
+    * { box-sizing: border-box; margin: 0; padding: 0; border-radius: 0 !important; box-shadow: none !important; }
     html, body {
-      width: 1200px;
-      height: 630px;
-      overflow: hidden;
-      background: var(--bg-page);
-      color: var(--ink);
-      font-family: var(--serif);
+      width: 1200px; height: 630px; overflow: hidden;
+      background: var(--bg-page); color: var(--ink); font-family: var(--serif);
     }
     .stage {
-      width: 1200px;
-      height: 630px;
-      background: var(--bg-page);
-      /* Generous page surround — the site’s off-white is the brand signal */
-      padding: 52px 64px;
-      display: flex;
+      width: 1200px; height: 630px; padding: 48px 56px; background: var(--bg-page);
     }
     .paper {
-      flex: 1;
-      background: var(--bg-paper);
-      border: 1px solid var(--border);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      padding: 40px 72px;
+      width: 100%; height: 100%;
+      background: var(--bg-paper); border: 1px solid var(--border);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      text-align: center; padding: 48px 72px;
     }
-    .status {
-      font-family: var(--sans);
-      font-size: 17px;
-      color: var(--dim);
-      border-top: 1px solid #000;
-      border-bottom: 1px solid #000;
-      padding: 8px 4px;
-      margin-bottom: 40px;
-    }
-    .status strong { color: #000; }
-
     h1 {
-      font-weight: 400;
-      font-size: 70px;
-      line-height: 1.05;
-      letter-spacing: -0.02em;
-      max-width: 920px;
-      margin-bottom: 24px;
+      font-weight: 400; font-size: 100px; line-height: 1.02;
+      letter-spacing: -0.03em; margin-bottom: 32px;
     }
-    .thesis {
-      font-style: italic;
-      font-size: 29px;
-      line-height: 1.35;
-      color: var(--muted);
-      max-width: 820px;
-      margin-bottom: 36px;
-    }
-    .rule {
-      width: 48px;
-      height: 1px;
-      background: #000;
-      margin-bottom: 28px;
-    }
-    .author {
-      font-size: 28px;
-      font-weight: 700;
-      margin-bottom: 8px;
-    }
-    .affil {
-      font-size: 22px;
-      font-style: italic;
-      color: var(--dim);
-      margin-bottom: 20px;
-    }
-    .link {
-      font-family: var(--mono);
-      font-size: 22px;
-      color: var(--navy);
-      text-decoration: underline;
+    .line {
+      font-style: italic; font-size: 40px; line-height: 1.25; color: var(--muted);
     }
   </style>
 </head>
 <body>
   <div class="stage">
     <div class="paper">
-      <div class="status">
-        <strong>Status:</strong> Working Draft / Replication Study &nbsp;·&nbsp;
-        <strong>Date:</strong> July 24, 2026
-      </div>
-
-      <h1>Low-Latency Market Data Engine</h1>
-      <p class="thesis">
-        A lock-free ring buffer for Level-2 market data<br />
-        dissemination in the Go runtime
-      </p>
-
-      <div class="rule" aria-hidden="true"></div>
-
-      <div class="author">Isaac Brendel</div>
-      <div class="affil">Systems Architecture &amp; Quantitative Infrastructure</div>
-      <a class="link" href="https://github.com/isaacbrendel/latency_optimizer">github.com/isaacbrendel/latency_optimizer</a>
+      <h1>Low-Latency<br />Market Data Engine</h1>
+      <p class="line">Lock-free ring buffer in Go</p>
     </div>
   </div>
 </body>
