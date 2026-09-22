@@ -1,4 +1,4 @@
-.PHONY: all build run bench test clean
+.PHONY: all build run bench test clean fuzz
 
 all: build
 
@@ -11,13 +11,17 @@ run: build
 	./test_bin
 
 bench:
-	@echo "Executing benchmark suite (channels vs lock-free disruptor)..."
-	go test -v -bench=. -benchmem
+	@echo "Executing benchmark suite..."
+	go test -bench=. -benchmem -count=5 ./engine/
 
 test:
-	@echo "Running unit tests..."
-	go test -v ./...
+	@echo "Running race-detector suite..."
+	go test -race -count=1 ./engine/
+
+fuzz:
+	go test -run=^$$ -fuzz=FuzzRingBufferPublishRead -fuzztime=10s ./engine
+	go test -run=^$$ -fuzz=FuzzFixedPointUSD -fuzztime=10s ./engine
 
 clean:
 	@echo "Cleaning binaries and temp files..."
-	rm -f test_bin bot_state.json
+	rm -f test_bin bot_state.json server_test_bin

@@ -53,7 +53,7 @@ beforeAll(async () => {
   }
 
   serverProcess = spawn(binaryPath, [], {
-    env: { ...process.env, PORT: String(TEST_PORT) },
+    env: { ...process.env, PORT: String(TEST_PORT), DISABLE_LIVE_FEED: '1' },
     stdio: 'ignore'
   });
 
@@ -136,12 +136,29 @@ describe('Latency Optimizer REST & SSE API Integration Suite', () => {
     const data = await res.json();
     expect(data).toHaveProperty('vwap');
     expect(data).toHaveProperty('rsi');
+    expect(data).toHaveProperty('obi');
     expect(data).toHaveProperty('ofi');
     expect(data).toHaveProperty('lastUpdated');
 
     expect(typeof data.vwap).toBe('number');
     expect(typeof data.rsi).toBe('number');
+    expect(typeof data.obi).toBe('number');
     expect(typeof data.ofi).toBe('number');
+    expect(data.rsi).toBeGreaterThanOrEqual(0);
+    expect(data.rsi).toBeLessThanOrEqual(100);
+  });
+
+  test('4b. Live Feed Telemetry [GET /api/feed]', async () => {
+    const res = await fetch(`${BASE_URL}/api/feed`);
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data).toHaveProperty('status');
+    expect(data).toHaveProperty('liveEnabled');
+    expect(data).toHaveProperty('productId');
+    expect(data).toHaveProperty('gaps');
+    expect(data).toHaveProperty('lastSequence');
+    expect(data.liveEnabled).toBe(false); // Jest forces DISABLE_LIVE_FEED=1
+    expect(typeof data.status).toBe('string');
   });
 
   test('5. SSE Benchmark Execution Streaming [GET /api/run-experiment]', async () => {
@@ -152,7 +169,22 @@ describe('Latency Optimizer REST & SSE API Integration Suite', () => {
     const body = await res.text();
     expect(body).toContain('data:');
     expect(body).toContain('[DONE]');
-  }, 10000);
+    expect(body).toMatch(/p50=/);
+    expect(body).toMatch(/p99=/);
+  }, 120000);
+
+  test('5b. Experiment endpoint is single-flight (429 when busy)', async () => {
+    const first = fetch(`${BASE_URL}/api/run-experiment?trades=5000&subscribers=50`);
+    await new Promise((r) => setTimeout(r, 50));
+    const second = await fetch(`${BASE_URL}/api/run-experiment?trades=100&subscribers=10`);
+    // Either 429 (locked) or 200 if first already finished — both acceptable; assert no 500.
+    expect([200, 429]).toContain(second.status);
+    if (second.status === 429) {
+      const text = await second.text();
+      expect(text.toLowerCase()).toContain('already running');
+    }
+    await first;
+  }, 180000);
 
   test('6. High-Concurrency Multi-Client Read Simulation', async () => {
     const clientRequests = [];

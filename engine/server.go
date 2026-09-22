@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -8,7 +9,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -16,125 +16,11 @@ import (
 	"time"
 )
 
-// BookLevel represents a single price level in the order book.
-type BookLevel struct {
-	Price USD `json:"price"`
-	Size  BTC `json:"size"`
-}
+// OrderBookState is the live L2 book (sorted-ladder, O(log n) updates).
+var OrderBookState = NewOrderBook()
 
-// OrderBook maintains synchronized bids/asks and calculates top levels, spread, and OBI.
-type OrderBook struct {
-	mu      sync.RWMutex
-	Bids    map[USD]BTC `json:"-"`
-	Asks    map[USD]BTC `json:"-"`
-	TopBids []BookLevel `json:"topBids"`
-	TopAsks []BookLevel `json:"topAsks"`
-	Spread  USD         `json:"spread"`
-	OBI     float64     `json:"obi"`
-}
-
-var OrderBookState = OrderBook{
-	Bids: make(map[USD]BTC),
-	Asks: make(map[USD]BTC),
-}
-
-func (ob *OrderBook) Update(price USD, size BTC, side uint8) {
-	ob.mu.Lock()
-	defer ob.mu.Unlock()
-
-	if side == 0 { // Bid
-		if size == 0 {
-			delete(ob.Bids, price)
-		} else {
-			ob.Bids[price] = size
-		}
-	} else { // Ask
-		if size == 0 {
-			delete(ob.Asks, price)
-		} else {
-			ob.Asks[price] = size
-		}
-	}
-
-	for {
-		if len(ob.Bids) == 0 || len(ob.Asks) == 0 {
-			break
-		}
-
-		var bestBid USD = 0
-		var hasBid = false
-		for p := range ob.Bids {
-			if !hasBid || p > bestBid {
-				bestBid = p
-				hasBid = true
-			}
-		}
-
-		var bestAsk USD = 0
-		var hasAsk = false
-		for p := range ob.Asks {
-			if !hasAsk || p < bestAsk {
-				bestAsk = p
-				hasAsk = true
-			}
-		}
-
-		if hasBid && hasAsk && bestBid >= bestAsk {
-			delete(ob.Bids, bestBid)
-			delete(ob.Asks, bestAsk)
-		} else {
-			break
-		}
-	}
-
-	bidPrices := make([]USD, 0, len(ob.Bids))
-	for p := range ob.Bids {
-		bidPrices = append(bidPrices, p)
-	}
-	sort.Slice(bidPrices, func(i, j int) bool {
-		return bidPrices[i] > bidPrices[j]
-	})
-
-	askPrices := make([]USD, 0, len(ob.Asks))
-	for p := range ob.Asks {
-		askPrices = append(askPrices, p)
-	}
-	sort.Slice(askPrices, func(i, j int) bool {
-		return askPrices[i] < askPrices[j]
-	})
-
-	ob.TopBids = make([]BookLevel, 0, 10)
-	for i := 0; i < len(bidPrices) && i < 10; i++ {
-		ob.TopBids = append(ob.TopBids, BookLevel{Price: bidPrices[i], Size: ob.Bids[bidPrices[i]]})
-	}
-
-	ob.TopAsks = make([]BookLevel, 0, 10)
-	for i := 0; i < len(askPrices) && i < 10; i++ {
-		ob.TopAsks = append(ob.TopAsks, BookLevel{Price: askPrices[i], Size: ob.Asks[askPrices[i]]})
-	}
-
-	if len(ob.TopBids) > 0 && len(ob.TopAsks) > 0 {
-		ob.Spread = ob.TopAsks[0].Price - ob.TopBids[0].Price
-	} else {
-		ob.Spread = 0
-	}
-
-	var totalBidVol BTC = 0
-	for _, b := range ob.TopBids {
-		totalBidVol += b.Size
-	}
-	var totalAskVol BTC = 0
-	for _, a := range ob.TopAsks {
-		totalAskVol += a.Size
-	}
-
-	denom := float64(totalBidVol + totalAskVol)
-	if denom > 0 {
-		ob.OBI = (float64(totalBidVol) - float64(totalAskVol)) / denom
-	} else {
-		ob.OBI = 0.0
-	}
-}
+// IndicatorStateVal holds honest VWAP / RSI / OBI / OFI microstructure metrics.
+var IndicatorStateVal = NewMicrostructureState()
 
 type EventTrace struct {
 	Timestamp string `json:"timestamp"`
@@ -192,17 +78,6 @@ type LiveState struct {
 
 var EngineState LiveState
 
-type IndicatorState struct {
-	mu          sync.RWMutex
-	VWAP        USD     `json:"vwap"`
-	RSI         float64 `json:"rsi"`
-	OFI         float64 `json:"ofi"`
-	TotalVolume BTC     `json:"totalVolume"`
-	LastUpdated string  `json:"lastUpdated"`
-}
-
-var IndicatorStateVal IndicatorState
-
 type BotOrder struct {
 	ID        int64  `json:"id"`
 	Timestamp string `json:"timestamp"`
@@ -236,12 +111,21 @@ type BotState struct {
 
 var BotStateVal BotState
 
-var initOnce sync.Once
+var (
+	initOnce   sync.Once
+	liveFeed   *L2Feed
+	feedCancel context.CancelFunc
+)
 
 func EnsureInitialized() {
 	initOnce.Do(func() {
 		initEngineState()
+		ctx, cancel := context.WithCancel(context.Background())
+		feedCancel = cancel
+		liveFeed = NewL2Feed("BTC-USD", OrderBookState, EngineState.rb, IndicatorStateVal)
+		go RunLiveL2Feed(ctx, liveFeed)
 		go runMockL2Producer()
+		go runDashboardConsumer()
 		go runQuantConsumer()
 		go runAuditConsumer()
 		go runBotConsumer()
@@ -249,9 +133,10 @@ func EnsureInitialized() {
 }
 
 func seedInitialMarketData() {
-	OrderBookState.mu.Lock()
-	defer OrderBookState.mu.Unlock()
-	if len(OrderBookState.TopBids) > 0 {
+	OrderBookState.mu.RLock()
+	hasData := len(OrderBookState.TopBids) > 0
+	OrderBookState.mu.RUnlock()
+	if hasData {
 		return
 	}
 	r := rand.New(rand.NewSource(42))
@@ -286,36 +171,9 @@ func seedInitialMarketData() {
 	}
 	EngineState.rb.PublishBatch(snapshotBatch)
 	for _, t := range snapshotBatch {
-		if t.Side == 0 {
-			OrderBookState.Bids[t.Price] = t.Quantity
-		} else {
-			OrderBookState.Asks[t.Price] = t.Quantity
-		}
+		OrderBookState.Update(t.Price, t.Quantity, t.Side)
 	}
-
-	bidPrices := make([]USD, 0, len(OrderBookState.Bids))
-	for p := range OrderBookState.Bids {
-		bidPrices = append(bidPrices, p)
-	}
-	sort.Slice(bidPrices, func(i, j int) bool { return bidPrices[i] > bidPrices[j] })
-
-	askPrices := make([]USD, 0, len(OrderBookState.Asks))
-	for p := range OrderBookState.Asks {
-		askPrices = append(askPrices, p)
-	}
-	sort.Slice(askPrices, func(i, j int) bool { return askPrices[i] < askPrices[j] })
-
-	OrderBookState.TopBids = make([]BookLevel, 0, 10)
-	for i := 0; i < len(bidPrices) && i < 10; i++ {
-		OrderBookState.TopBids = append(OrderBookState.TopBids, BookLevel{Price: bidPrices[i], Size: OrderBookState.Bids[bidPrices[i]]})
-	}
-	OrderBookState.TopAsks = make([]BookLevel, 0, 10)
-	for i := 0; i < len(askPrices) && i < 10; i++ {
-		OrderBookState.TopAsks = append(OrderBookState.TopAsks, BookLevel{Price: askPrices[i], Size: OrderBookState.Asks[askPrices[i]]})
-	}
-	if len(OrderBookState.TopBids) > 0 && len(OrderBookState.TopAsks) > 0 {
-		OrderBookState.Spread = OrderBookState.TopAsks[0].Price - OrderBookState.TopBids[0].Price
-	}
+	IndicatorStateVal.OnBookUpdate(OrderBookState)
 	AddTrace("W", "WRITE", 0, 0, "[Multi-Venue Snapshot] Bids: 20, Asks: 20")
 }
 
@@ -449,40 +307,43 @@ func runMockL2Producer() {
 				EngineState.recentTradesFloat = EngineState.recentTradesFloat[len(EngineState.recentTradesFloat)-50:]
 			}
 			EngineState.mu.Unlock()
+			IndicatorStateVal.OnTrade(ToUSD(matchPrice), ToBTC(matchQty))
 		}
 	}
 }
 
+// runDashboardConsumer is the non-blocking UI reader — advances its own cursor
+// so eviction metrics and uiSeq reflect a real consumer, not a synthetic writeSeq.
+func runDashboardConsumer() {
+	var seq int64
+	EngineState.rb.Read(EngineState.dashboardReader, 1<<62, nil, func(t CompactTrade) {
+		AddTrace("UI", "READ", seq%32, t.ID, fmt.Sprintf("dashboard slot seq=%d", seq))
+		seq++
+	})
+}
+
 func runQuantConsumer() {
 	var seq int64 = 0
-	EngineState.rb.Read(EngineState.quantReader, 1000000000, nil, func(t CompactTrade) {
+	EngineState.rb.Read(EngineState.quantReader, 1<<62, nil, func(t CompactTrade) {
 		OrderBookState.Update(t.Price, t.Quantity, t.Side)
-		AddTrace("IND", "READ", seq%32, 0, fmt.Sprintf("L2 Update: %s $%.2f size %.4f",
-			func() string { if t.Side == 0 { return "BID" }; return "ASK" }(),
+		IndicatorStateVal.OnBookUpdate(OrderBookState)
+		AddTrace("IND", "READ", seq%32, t.ID, fmt.Sprintf("L2 Update: %s $%.2f size %.4f",
+			func() string {
+				if t.Side == 0 {
+					return "BID"
+				}
+				return "ASK"
+			}(),
 			t.Price.Float64(), t.Quantity.Float64()))
 		seq++
-
-		OrderBookState.mu.RLock()
-		obi := OrderBookState.OBI
-		var midPrice USD = 0
-		if len(OrderBookState.TopBids) > 0 && len(OrderBookState.TopAsks) > 0 {
-			midPrice = (OrderBookState.TopBids[0].Price + OrderBookState.TopAsks[0].Price) / 2
-		}
-		OrderBookState.mu.RUnlock()
-
-		IndicatorStateVal.mu.Lock()
-		IndicatorStateVal.VWAP = midPrice
-		IndicatorStateVal.RSI = (obi + 1.0) * 50.0
-		IndicatorStateVal.OFI = obi * 100.0
-		IndicatorStateVal.LastUpdated = time.Now().Format("15:04:05")
-		IndicatorStateVal.mu.Unlock()
 	})
 }
 
 func runAuditConsumer() {
 	var seq int64 = 0
-	EngineState.rb.Read(EngineState.auditReader, 1000000000, nil, func(t CompactTrade) {
+	EngineState.rb.Read(EngineState.auditReader, 1<<62, nil, func(t CompactTrade) {
 		seq++
+		_ = t
 	})
 }
 
@@ -492,7 +353,7 @@ func runBotConsumer() {
 		return atomic.LoadInt64(&EngineState.quantReader.ReadSeq)
 	})
 
-	EngineState.rb.Read(EngineState.botReader, 1000000000, barrier, func(t CompactTrade) {
+	EngineState.rb.Read(EngineState.botReader, 1<<62, barrier, func(t CompactTrade) {
 		OrderBookState.mu.RLock()
 		obi := OrderBookState.OBI
 		var midPrice USD = 0
@@ -638,13 +499,7 @@ func HandleOrderBookAPI(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
-	OrderBookState.mu.RLock()
-	defer OrderBookState.mu.RUnlock()
-
-	var midPrice USD = 0
-	if len(OrderBookState.TopBids) > 0 && len(OrderBookState.TopAsks) > 0 {
-		midPrice = (OrderBookState.TopBids[0].Price + OrderBookState.TopAsks[0].Price) / 2
-	}
+	topBids, topAsks, spread, midPrice, obi := OrderBookState.Snapshot()
 
 	EngineState.mu.RLock()
 	tradesCopy := make([]*Trade, len(EngineState.recentTradesFloat))
@@ -656,19 +511,57 @@ func HandleOrderBookAPI(w http.ResponseWriter, r *http.Request) {
 		posVal := BotStateVal.Position.Value(midPrice)
 		BotStateVal.NAV = BotStateVal.Cash + posVal
 	}
-	botStateCopy := BotStateVal
-	botStateCopy.Orders = make([]BotOrder, len(BotStateVal.Orders))
-	copy(botStateCopy.Orders, BotStateVal.Orders)
+	botStateCopy := struct {
+		Cash          USD        `json:"cash"`
+		Position      BTC        `json:"position"`
+		NAV           USD        `json:"nav"`
+		BuyAndHoldNAV USD        `json:"buyAndHoldNav"`
+		InitialPrice  USD        `json:"initialPrice"`
+		FastEMA       USD        `json:"fastEma"`
+		SlowEMA       USD        `json:"slowEma"`
+		Signal        string     `json:"signal"`
+		Orders        []BotOrder `json:"orders"`
+		StopLossPct   float64    `json:"stopLossPct"`
+		TakeProfitPct float64    `json:"takeProfitPct"`
+		TakerFeePct   float64    `json:"takerFeePct"`
+		SlippagePct   float64    `json:"slippagePct"`
+		EntryPrice    USD        `json:"entryPrice"`
+		Strategy      string     `json:"strategy"`
+		Commentary    string     `json:"commentary"`
+	}{
+		Cash:          BotStateVal.Cash,
+		Position:      BotStateVal.Position,
+		NAV:           BotStateVal.NAV,
+		BuyAndHoldNAV: BotStateVal.BuyAndHoldNAV,
+		InitialPrice:  BotStateVal.InitialPrice,
+		FastEMA:       BotStateVal.FastEMA,
+		SlowEMA:       BotStateVal.SlowEMA,
+		Signal:        BotStateVal.Signal,
+		Orders:        append([]BotOrder(nil), BotStateVal.Orders...),
+		StopLossPct:   BotStateVal.StopLossPct,
+		TakeProfitPct: BotStateVal.TakeProfitPct,
+		TakerFeePct:   BotStateVal.TakerFeePct,
+		SlippagePct:   BotStateVal.SlippagePct,
+		EntryPrice:    BotStateVal.EntryPrice,
+		Strategy:      BotStateVal.Strategy,
+		Commentary:    BotStateVal.Commentary,
+	}
 	BotStateVal.mu.Unlock()
 
 	resp := map[string]interface{}{
-		"orderBook": OrderBookState,
-		"midPrice":  midPrice,
-		"trades":    tradesCopy,
-		"bot":       botStateCopy,
+		"orderBook": map[string]interface{}{
+			"topBids": topBids,
+			"topAsks": topAsks,
+			"spread":  spread,
+			"obi":     obi,
+			"mid":     midPrice,
+		},
+		"midPrice": midPrice,
+		"trades":   tradesCopy,
+		"bot":      botStateCopy,
 	}
 
-	json.NewEncoder(w).Encode(resp)
+	_ = json.NewEncoder(w).Encode(resp)
 }
 
 func HandleRingBufferAPI(w http.ResponseWriter, r *http.Request) {
@@ -680,6 +573,7 @@ func HandleRingBufferAPI(w http.ResponseWriter, r *http.Request) {
 	botSeq := atomic.LoadInt64(&EngineState.botReader.ReadSeq)
 	aiSeq := atomic.LoadInt64(&EngineState.quantReader.ReadSeq)
 	auditSeq := atomic.LoadInt64(&EngineState.auditReader.ReadSeq)
+	uiSeq := atomic.LoadInt64(&EngineState.dashboardReader.ReadSeq)
 	evictedCount := atomic.LoadInt64(&EngineState.dashboardReader.EvictedCount)
 
 	type SlotDetail struct {
@@ -693,20 +587,24 @@ func HandleRingBufferAPI(w http.ResponseWriter, r *http.Request) {
 
 	slots := make([]SlotDetail, 32)
 	for i := int64(0); i < 32; i++ {
-		trade := EngineState.rb.Buffer[i]
+		trade := EngineState.rb.SlotAt(i)
 		venueStr := "Coinbase"
 		if trade.VenueID == 1 {
 			venueStr = "Robinhood"
 		} else if trade.VenueID == 2 {
 			venueStr = "Binance"
 		}
+		side := "ASK"
+		if trade.Side == 0 {
+			side = "BID"
+		}
 		slots[i] = SlotDetail{
 			Index:    i,
 			TradeID:  trade.ID,
 			Price:    trade.Price.Float64(),
-			Side:     func() string { if trade.Side == 0 { return "BID" }; return "ASK" }(),
+			Side:     side,
 			Venue:    venueStr,
-			IsActive: (wSeq % 32) == i,
+			IsActive: (wSeq & 31) == i,
 		}
 	}
 
@@ -715,24 +613,47 @@ func HandleRingBufferAPI(w http.ResponseWriter, r *http.Request) {
 		"botSeq":       botSeq,
 		"aiSeq":        aiSeq,
 		"auditSeq":     auditSeq,
-		"uiSeq":        wSeq,
+		"uiSeq":        uiSeq,
 		"evictedCount": evictedCount,
 		"slots":        slots,
 		"traces":       GetTraces(),
 	}
 
-	json.NewEncoder(w).Encode(resp)
+	_ = json.NewEncoder(w).Encode(resp)
 }
 
 func HandleSentimentAPI(w http.ResponseWriter, r *http.Request) {
 	EnsureInitialized()
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
+	_ = json.NewEncoder(w).Encode(IndicatorStateVal.Snapshot())
+}
 
-	IndicatorStateVal.mu.RLock()
-	defer IndicatorStateVal.mu.RUnlock()
-
-	json.NewEncoder(w).Encode(IndicatorStateVal)
+// HandleFeedAPI returns live venue-feed telemetry (status, gaps, sequences).
+func HandleFeedAPI(w http.ResponseWriter, r *http.Request) {
+	EnsureInitialized()
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	status := FeedStatusFallbackMock.String()
+	var stats L2FeedStats
+	if liveFeed != nil {
+		stats = liveFeed.Stats()
+		status = FeedStatus(stats.Status).String()
+	}
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":       status,
+		"liveEnabled":  LiveFeedEnabled(),
+		"wsURL":        LiveFeedURL(),
+		"productId":    "BTC-USD",
+		"messages":     stats.Messages,
+		"snapshots":    stats.Snapshots,
+		"updates":      stats.Updates,
+		"gaps":         stats.Gaps,
+		"resyncs":      stats.Resyncs,
+		"parseErrors":  stats.ParseErrors,
+		"lastSequence": stats.LastSequence,
+		"wsConnected":  atomic.LoadInt32(&wsConnected),
+	})
 }
 
 type flushWriter struct {
@@ -778,8 +699,16 @@ func saveBenchmarkResults(jsonData []byte) (string, error) {
 	return final, nil
 }
 
+var experimentMu sync.Mutex
+
 func HandleRunExperimentAPI(w http.ResponseWriter, r *http.Request) {
 	EnsureInitialized()
+	if !experimentMu.TryLock() {
+		http.Error(w, "experiment already running", http.StatusTooManyRequests)
+		return
+	}
+	defer experimentMu.Unlock()
+
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")

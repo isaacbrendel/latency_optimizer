@@ -1,4 +1,4 @@
-package main
+package engine
 
 import (
 	"sync"
@@ -138,7 +138,7 @@ func BenchmarkRingBufferV6(b *testing.B) {
 					// consume
 				})
 				wg.Done()
-			}(rb.readers[s])
+			}(rb.Readers[s])
 		}
 
 		for j := 0; j < len(compactTrades); j += batchSize {
@@ -180,8 +180,8 @@ func BenchmarkRingBufferEvicting(b *testing.B) {
 		wg.Add(numSubscribers)
 
 		rb := NewRingBufferV6(1024, numSubscribers)
-		for _, r := range rb.readers {
-			r.blocking = false // Non-blocking eviction mode
+		for _, r := range rb.Readers {
+			r.Blocking = false // Non-blocking eviction mode
 		}
 
 		for s := 0; s < numSubscribers; s++ {
@@ -190,7 +190,7 @@ func BenchmarkRingBufferEvicting(b *testing.B) {
 					// consume
 				})
 				wg.Done()
-			}(rb.readers[s])
+			}(rb.Readers[s])
 		}
 
 		for j := 0; j < len(compactTrades); j += batchSize {
@@ -254,8 +254,8 @@ func BenchmarkStressTest100K(b *testing.B) {
 		wg.Add(numSubscribers)
 
 		rb := NewRingBufferV6(2048, numSubscribers)
-		for _, r := range rb.readers {
-			r.blocking = false
+		for _, r := range rb.Readers {
+			r.Blocking = false
 		}
 
 		for s := 0; s < numSubscribers; s++ {
@@ -264,7 +264,7 @@ func BenchmarkStressTest100K(b *testing.B) {
 					// stress processing loop
 				})
 				wg.Done()
-			}(rb.readers[s])
+			}(rb.Readers[s])
 		}
 
 		for j := 0; j < len(compactTrades); j += batchSize {
@@ -304,8 +304,8 @@ func BenchmarkHighSubscriberStress2000(b *testing.B) {
 		wg.Add(numSubscribers)
 
 		rb := NewRingBufferV6(2048, numSubscribers)
-		for _, r := range rb.readers {
-			r.blocking = false
+		for _, r := range rb.Readers {
+			r.Blocking = false
 		}
 
 		for s := 0; s < numSubscribers; s++ {
@@ -314,7 +314,7 @@ func BenchmarkHighSubscriberStress2000(b *testing.B) {
 					// stress processing loop
 				})
 				wg.Done()
-			}(rb.readers[s])
+			}(rb.Readers[s])
 		}
 
 		for j := 0; j < len(compactTrades); j += batchSize {

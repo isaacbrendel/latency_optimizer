@@ -5,15 +5,18 @@ import (
 	"fmt"
 )
 
-// BinaryFlatTrade represents a lightweight zero-copy binary wire format.
+// BinaryFlatTrade is a fixed 38-byte little-endian wire frame for CompactTrade.
+// Named historically; it is a hand-rolled binary layout (not FlatBuffers IDL).
 type BinaryFlatTrade []byte
 
-// EncodeFlatTrade serializes a CompactTrade into a pre-allocated binary byte slice.
+const BinaryWireFrameSize = 38
+
+// EncodeFlatTrade serializes a CompactTrade into a pre-allocated binary frame.
 func EncodeFlatTrade(buf []byte, ct CompactTrade) []byte {
-	if len(buf) < 38 {
-		buf = make([]byte, 38)
+	if len(buf) < BinaryWireFrameSize {
+		buf = make([]byte, BinaryWireFrameSize)
 	}
-	binary.LittleEndian.PutUint16(buf[0:2], 38)
+	binary.LittleEndian.PutUint16(buf[0:2], BinaryWireFrameSize)
 	binary.LittleEndian.PutUint64(buf[2:10], uint64(ct.ID))
 	binary.LittleEndian.PutUint64(buf[10:18], uint64(ct.Price))
 	binary.LittleEndian.PutUint64(buf[18:26], uint64(ct.Quantity))
@@ -21,7 +24,7 @@ func EncodeFlatTrade(buf []byte, ct CompactTrade) []byte {
 	binary.LittleEndian.PutUint16(buf[34:36], ct.Sequence)
 	buf[36] = ct.SymbolID
 	buf[37] = ct.Side
-	return buf[:38]
+	return buf[:BinaryWireFrameSize]
 }
 
 func (b BinaryFlatTrade) ReadID() int64 {
@@ -56,22 +59,14 @@ func (b BinaryFlatTrade) DecodeToCompactTrade() CompactTrade {
 	}
 }
 
-func VerifyFlatBuffersEncoding() {
+// VerifyBinaryWireEncoding round-trips a sample trade (debug helper).
+func VerifyBinaryWireEncoding() {
 	ct := CompactTrade{
-		ID:        999988,
-		Price:     ToUSD(65432.10),
-		Quantity:  ToBTC(1.5),
-		Timestamp: 1700000000,
-		Sequence:  42,
-		SymbolID:  0,
-		Side:      1,
+		ID: 999988, Price: ToUSD(65432.10), Quantity: ToBTC(1.5),
+		Timestamp: 1700000000, Sequence: 42, SymbolID: 0, Side: 1,
 	}
-
-	rawBuf := make([]byte, 38)
-	encoded := EncodeFlatTrade(rawBuf, ct)
+	encoded := EncodeFlatTrade(make([]byte, BinaryWireFrameSize), ct)
 	decoded := BinaryFlatTrade(encoded).DecodeToCompactTrade()
-
-	fmt.Printf("[FlatBuffers Zero-Copy Check] Raw Payload: %d bytes\n", len(encoded))
-	fmt.Printf("  Decoded Trade ID: %d, Price: $%.2f, Qty: %.2f BTC, Seq: %d\n",
-		decoded.ID, decoded.Price.Float64(), decoded.Quantity.Float64(), decoded.Sequence)
+	fmt.Printf("[Binary Wire] %d bytes id=%d price=$%.2f\n",
+		len(encoded), decoded.ID, decoded.Price.Float64())
 }

@@ -12,6 +12,11 @@ type BenchmarkResult struct {
 	TimeNs     int64 `json:"timeNs"`
 	Allocs     int64 `json:"allocs"`
 	BytesAlloc int64 `json:"bytesAlloc"`
+	P50Ns      int64 `json:"p50Ns,omitempty"`
+	P90Ns      int64 `json:"p90Ns,omitempty"`
+	P99Ns      int64 `json:"p99Ns,omitempty"`
+	P999Ns     int64 `json:"p999Ns,omitempty"`
+	Samples    int   `json:"samples,omitempty"`
 }
 
 type TradeScalingPoint struct {
@@ -82,7 +87,7 @@ func RunExperimentSuite(tradeCounts []int, subscriberCounts []int, logger io.Wri
 			Results: make(map[string]BenchmarkResult),
 		}
 
-		implementations := []string{"SimpleFanV1", "SimpleFanV2", "SimpleFanV3", "RingBufferV6", "RingBufferEviction", "FlatBuffersZeroCopy"}
+		implementations := []string{"SimpleFanV1", "SimpleFanV2", "SimpleFanV3", "RingBufferV6", "RingBufferEviction", "BinaryWireFanout"}
 		for _, impl := range implementations {
 			fmt.Fprintf(logger, "  %-20s: running...\n", impl)
 			res, ok, reason := runSingleBenchmarkSafe(impl, trades, constSubscribers)
@@ -91,8 +96,8 @@ func RunExperimentSuite(tradeCounts []int, subscriberCounts []int, logger io.Wri
 				fmt.Fprintf(logger, "  %-20s: SKIPPED (%s)\n", impl, reason)
 				continue
 			}
-			fmt.Fprintf(logger, "  %-20s: %10.2f ms | %10d allocs | %10d bytes\n",
-				impl, float64(res.TimeNs)/1e6, res.Allocs, res.BytesAlloc)
+			fmt.Fprintf(logger, "  %-20s: %10.2f ms | p50=%d ns p99=%d ns | %10d allocs | %10d bytes\n",
+				impl, float64(res.TimeNs)/1e6, res.P50Ns, res.P99Ns, res.Allocs, res.BytesAlloc)
 		}
 		output.TradesScaling.Points = append(output.TradesScaling.Points, point)
 	}
@@ -110,7 +115,7 @@ func RunExperimentSuite(tradeCounts []int, subscriberCounts []int, logger io.Wri
 			Results:     make(map[string]BenchmarkResult),
 		}
 
-		implementations := []string{"SimpleFanV1", "SimpleFanV2", "SimpleFanV3", "RingBufferV6", "RingBufferEviction", "FlatBuffersZeroCopy"}
+		implementations := []string{"SimpleFanV1", "SimpleFanV2", "SimpleFanV3", "RingBufferV6", "RingBufferEviction", "BinaryWireFanout"}
 		for _, impl := range implementations {
 			fmt.Fprintf(logger, "  %-20s: running...\n", impl)
 			res, ok, reason := runSingleBenchmarkSafe(impl, tradesForSubscribers, sc)
@@ -119,8 +124,8 @@ func RunExperimentSuite(tradeCounts []int, subscriberCounts []int, logger io.Wri
 				fmt.Fprintf(logger, "  %-20s: SKIPPED (%s)\n", impl, reason)
 				continue
 			}
-			fmt.Fprintf(logger, "  %-20s: %10.2f ms | %10d allocs | %10d bytes\n",
-				impl, float64(res.TimeNs)/1e6, res.Allocs, res.BytesAlloc)
+			fmt.Fprintf(logger, "  %-20s: %10.2f ms | p50=%d ns p99=%d ns | %10d allocs | %10d bytes\n",
+				impl, float64(res.TimeNs)/1e6, res.P50Ns, res.P99Ns, res.Allocs, res.BytesAlloc)
 		}
 		output.SubscribersScaling.Points = append(output.SubscribersScaling.Points, point)
 	}
@@ -139,6 +144,7 @@ func runSingleBenchmark(impl string, trades []*Trade, numSubscribers int) Benchm
 
 	var wg sync.WaitGroup
 	wg.Add(numSubscribers)
+	hist := NewLatencyHistogram(1 << 16)
 
 	start := time.Now()
 
@@ -149,12 +155,16 @@ func runSingleBenchmark(impl string, trades []*Trade, numSubscribers int) Benchm
 		for i := 0; i < numSubscribers; i++ {
 			go func(ch chan Trade) {
 				for t := range ch {
+					if t.Timestamp > 0 {
+						hist.Record(time.Now().UnixNano() - t.Timestamp)
+					}
 					ProcessTrade(&t)
 				}
 				wg.Done()
 			}(sf.channels[i])
 		}
 		for _, t := range trades {
+			t.Timestamp = time.Now().UnixNano()
 			sf.Publish(t)
 		}
 		sf.Close()
@@ -165,12 +175,16 @@ func runSingleBenchmark(impl string, trades []*Trade, numSubscribers int) Benchm
 		for i := 0; i < numSubscribers; i++ {
 			go func(ch chan *Trade) {
 				for t := range ch {
+					if t != nil && t.Timestamp > 0 {
+						hist.Record(time.Now().UnixNano() - t.Timestamp)
+					}
 					ProcessTrade(t)
 				}
 				wg.Done()
 			}(sf.channels[i])
 		}
 		for _, t := range trades {
+			t.Timestamp = time.Now().UnixNano()
 			sf.Publish(t)
 		}
 		sf.Close()
@@ -181,7 +195,11 @@ func runSingleBenchmark(impl string, trades []*Trade, numSubscribers int) Benchm
 		for i := 0; i < numSubscribers; i++ {
 			go func(ch chan []*Trade) {
 				for batch := range ch {
+					now := time.Now().UnixNano()
 					for _, t := range batch {
+						if t != nil && t.Timestamp > 0 {
+							hist.Record(now - t.Timestamp)
+						}
 						ProcessTrade(t)
 					}
 				}
@@ -194,7 +212,12 @@ func runSingleBenchmark(impl string, trades []*Trade, numSubscribers int) Benchm
 			if end > len(trades) {
 				end = len(trades)
 			}
-			sf.Publish(trades[i:end])
+			batch := trades[i:end]
+			ts := time.Now().UnixNano()
+			for _, t := range batch {
+				t.Timestamp = ts
+			}
+			sf.Publish(batch)
 		}
 		sf.Close()
 
@@ -209,22 +232,21 @@ func runSingleBenchmark(impl string, trades []*Trade, numSubscribers int) Benchm
 				side = 1
 			}
 			compactTrades[idx] = CompactTrade{
-				ID:        t.ID,
-				Price:     ToUSD(t.Price),
-				Quantity:  ToBTC(t.Quantity),
-				Timestamp: t.Timestamp,
-				SymbolID:  0,
-				Side:      side,
+				ID: t.ID, Price: ToUSD(t.Price), Quantity: ToBTC(t.Quantity),
+				SymbolID: 0, Side: side,
 			}
 		}
 
 		for i := 0; i < numSubscribers; i++ {
-			go func(reader *RingBufferReader) {
+			go func(reader *RingBufferReader, record bool) {
 				rb.Read(reader, int64(len(compactTrades)), nil, func(ct CompactTrade) {
+					if record && ct.Timestamp > 0 {
+						hist.Record(time.Now().UnixNano() - ct.Timestamp)
+					}
 					ProcessCompactTrade(ct)
 				})
 				wg.Done()
-			}(rb.Readers[i])
+			}(rb.Readers[i], i == 0)
 		}
 		batchSize := 128
 		for i := 0; i < len(compactTrades); i += batchSize {
@@ -232,13 +254,16 @@ func runSingleBenchmark(impl string, trades []*Trade, numSubscribers int) Benchm
 			if end > len(compactTrades) {
 				end = len(compactTrades)
 			}
+			ts := time.Now().UnixNano()
+			for j := i; j < end; j++ {
+				compactTrades[j].Timestamp = ts
+			}
 			rb.PublishBatch(compactTrades[i:end])
 		}
 
 	case "RingBufferEviction":
-		bufSize := int64(2048)
+		bufSize := int64(256)
 		rb := NewRingBufferV6(bufSize, numSubscribers)
-
 		compactTrades := make([]CompactTrade, len(trades))
 		for idx, t := range trades {
 			var side uint8 = 0
@@ -246,22 +271,21 @@ func runSingleBenchmark(impl string, trades []*Trade, numSubscribers int) Benchm
 				side = 1
 			}
 			compactTrades[idx] = CompactTrade{
-				ID:        t.ID,
-				Price:     ToUSD(t.Price),
-				Quantity:  ToBTC(t.Quantity),
-				Timestamp: t.Timestamp,
-				SymbolID:  0,
-				Side:      side,
+				ID: t.ID, Price: ToUSD(t.Price), Quantity: ToBTC(t.Quantity),
+				Timestamp: t.Timestamp, SymbolID: 0, Side: side,
 			}
 		}
-
 		for i := 0; i < numSubscribers; i++ {
-			go func(reader *RingBufferReader) {
+			rb.Readers[i].Blocking = false
+			go func(reader *RingBufferReader, slow bool) {
 				rb.Read(reader, int64(len(compactTrades)), nil, func(ct CompactTrade) {
+					if slow {
+						time.Sleep(50 * time.Microsecond)
+					}
 					ProcessCompactTrade(ct)
 				})
 				wg.Done()
-			}(rb.Readers[i])
+			}(rb.Readers[i], i == 0)
 		}
 		batchSize := 128
 		for i := 0; i < len(compactTrades); i += batchSize {
@@ -269,27 +293,29 @@ func runSingleBenchmark(impl string, trades []*Trade, numSubscribers int) Benchm
 			if end > len(compactTrades) {
 				end = len(compactTrades)
 			}
-			rb.PublishBatch(compactTrades[i:end])
+			rb.PublishBatchEvicting(compactTrades[i:end])
 		}
 
-	case "FlatBuffersZeroCopy":
-		ct := CompactTrade{
-			ID:        999988,
-			Price:     ToUSD(65432.10),
-			Quantity:  ToBTC(1.5),
-			Timestamp: 1700000000,
-			Sequence:  42,
-			SymbolID:  0,
-			Side:      1,
-		}
-		buf := make([]byte, 38)
-		for i := 0; i < len(trades); i++ {
-			encoded := EncodeFlatTrade(buf, ct)
-			_ = BinaryFlatTrade(encoded).ReadID()
-			_ = BinaryFlatTrade(encoded).ReadPrice()
+	case "BinaryWireFanout":
+		frames := make([][]byte, len(trades))
+		for idx, t := range trades {
+			var side uint8
+			if t.ID%2 != 0 {
+				side = 1
+			}
+			ct := CompactTrade{
+				ID: t.ID, Price: ToUSD(t.Price), Quantity: ToBTC(t.Quantity),
+				Timestamp: t.Timestamp, SymbolID: 0, Side: side, Sequence: uint16(idx),
+			}
+			frames[idx] = EncodeFlatTrade(make([]byte, 38), ct)
 		}
 		for i := 0; i < numSubscribers; i++ {
-			wg.Done()
+			go func() {
+				for _, f := range frames {
+					ProcessCompactTrade(BinaryFlatTrade(f).DecodeToCompactTrade())
+				}
+				wg.Done()
+			}()
 		}
 	}
 
@@ -300,7 +326,6 @@ func runSingleBenchmark(impl string, trades []*Trade, numSubscribers int) Benchm
 
 	allocs := int64(m2.Mallocs - m1.Mallocs)
 	bytesAlloc := int64(m2.TotalAlloc - m1.TotalAlloc)
-
 	if allocs < 0 {
 		allocs = 0
 	}
@@ -308,9 +333,15 @@ func runSingleBenchmark(impl string, trades []*Trade, numSubscribers int) Benchm
 		bytesAlloc = 0
 	}
 
+	rep := hist.Report()
 	return BenchmarkResult{
 		TimeNs:     elapsed.Nanoseconds(),
 		Allocs:     allocs,
 		BytesAlloc: bytesAlloc,
+		P50Ns:      rep.P50Ns,
+		P90Ns:      rep.P90Ns,
+		P99Ns:      rep.P99Ns,
+		P999Ns:     rep.P999Ns,
+		Samples:    rep.Count,
 	}
 }
