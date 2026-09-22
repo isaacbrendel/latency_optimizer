@@ -20,9 +20,9 @@ func LiveFeedURL() string {
 	return defaultExchangeWS
 }
 
-// LiveFeedEnabled defaults ON for long-running processes.
-// Serverless (Vercel/Lambda) stays on the mock producer unless ENABLE_LIVE_FEED=1.
-// Set DISABLE_LIVE_FEED=1 to force mock everywhere (CI/Jest).
+// LiveFeedEnabled gates the persistent WebSocket client.
+// Defaults ON for long-running hosts; OFF on Vercel/Lambda (use REST instead).
+// ENABLE_LIVE_FEED=1 forces WS even on serverless; DISABLE_LIVE_FEED=1 disables all live paths.
 func LiveFeedEnabled() bool {
 	if os.Getenv("DISABLE_LIVE_FEED") == "1" {
 		return false
@@ -38,10 +38,15 @@ func LiveFeedEnabled() bool {
 
 // RunLiveL2Feed dials the venue WebSocket, applies snapshots/deltas via L2Feed,
 // and reconnects with backoff on gaps/errors. Sets wsConnected=1 while live so
-// the mock producer yields. Cancels when ctx is done.
+// the REST poller / mock producer yield. Cancels when ctx is done.
 func RunLiveL2Feed(ctx context.Context, feed *L2Feed) {
 	if !LiveFeedEnabled() {
-		feed.SetStatus(FeedStatusFallbackMock)
+		// Serverless / WS-disabled: REST poller owns freshness.
+		if RestFeedEnabled() {
+			feed.SetStatus(FeedStatusConnecting)
+		} else {
+			feed.SetStatus(FeedStatusFallbackMock)
+		}
 		return
 	}
 

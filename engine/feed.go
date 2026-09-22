@@ -14,6 +14,7 @@ const (
 	FeedStatusDisconnected FeedStatus = iota
 	FeedStatusConnecting
 	FeedStatusLive
+	FeedStatusLiveREST
 	FeedStatusResyncing
 	FeedStatusFallbackMock
 )
@@ -24,6 +25,8 @@ func (s FeedStatus) String() string {
 		return "connecting"
 	case FeedStatusLive:
 		return "live"
+	case FeedStatusLiveREST:
+		return "live_rest"
 	case FeedStatusResyncing:
 		return "resyncing"
 	case FeedStatusFallbackMock:
