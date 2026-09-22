@@ -2,225 +2,261 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Latency Optimizer — Featured Thumbnail</title>
+  <title>Latency Engine — Featured</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=Syne:wght@700;800&display=swap" rel="stylesheet" />
   <style>
     :root {
-      --bg-page: #fbfbf9;
-      --bg-paper: #ffffff;
-      --text-main: #000000;
-      --text-dim: #555555;
-      --accent-blue: #000080;
-      --font-serif: "Times New Roman", Times, Georgia, serif;
-      --font-sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
-      --font-mono: "Courier New", Courier, Monaco, monospace;
+      --bg: #06080b;
+      --ink: #f4f7fb;
+      --muted: #9aa7b8;
+      --mint: #3dffb5;
+      --mint-dim: #1a9f72;
+      --steel: #7eb6ff;
+      --panel: rgba(8, 12, 18, 0.72);
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; border-radius: 0 !important; box-shadow: none !important; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body {
       width: 1200px;
       height: 630px;
       overflow: hidden;
-      background: var(--bg-page);
-      font-family: var(--font-serif);
-      color: var(--text-main);
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Syne", system-ui, sans-serif;
     }
-    .frame {
+    .stage {
       width: 1200px;
       height: 630px;
-      padding: 36px 48px;
-      display: flex;
-      align-items: stretch;
+      position: relative;
+      overflow: hidden;
+      background:
+        radial-gradient(900px 500px at 78% 42%, rgba(61, 255, 181, 0.12), transparent 55%),
+        radial-gradient(700px 420px at 88% 80%, rgba(126, 182, 255, 0.10), transparent 50%),
+        linear-gradient(120deg, #05070a 0%, #0a1018 48%, #071018 100%);
     }
-    .paper {
-      flex: 1;
-      background: var(--bg-paper);
-      border: 1px solid #d3d3d3;
-      padding: 40px 48px 36px;
+    /* Abstract ring buffer visual */
+    .rings {
+      position: absolute;
+      right: -80px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 720px;
+      height: 720px;
+      pointer-events: none;
+    }
+    .ring {
+      position: absolute;
+      inset: 0;
+      border: 1px solid rgba(61, 255, 181, 0.18);
+      border-radius: 50%;
+    }
+    .ring:nth-child(1) { inset: 40px; border-color: rgba(126, 182, 255, 0.15); }
+    .ring:nth-child(2) { inset: 90px; border-color: rgba(61, 255, 181, 0.22); }
+    .ring:nth-child(3) { inset: 150px; border-color: rgba(255, 255, 255, 0.08); }
+    .ring:nth-child(4) { inset: 210px; border-color: rgba(61, 255, 181, 0.35); }
+    .ring:nth-child(5) { inset: 270px; border-color: rgba(126, 182, 255, 0.25); }
+    .arc {
+      position: absolute;
+      border-radius: 50%;
+      border: 3px solid transparent;
+    }
+    .arc.a {
+      inset: 90px;
+      border-top-color: var(--mint);
+      border-right-color: var(--mint);
+      transform: rotate(25deg);
+      filter: drop-shadow(0 0 12px rgba(61, 255, 181, 0.55));
+    }
+    .arc.b {
+      inset: 150px;
+      border-bottom-color: var(--steel);
+      border-left-color: var(--steel);
+      transform: rotate(-18deg);
+      filter: drop-shadow(0 0 10px rgba(126, 182, 255, 0.45));
+    }
+    .arc.c {
+      inset: 210px;
+      border-top-color: #ffc857;
+      width: auto; height: auto;
+      filter: drop-shadow(0 0 8px rgba(255, 200, 87, 0.4));
+    }
+    .hub {
+      position: absolute;
+      left: 50%; top: 50%;
+      transform: translate(-50%, -50%);
+      width: 88px; height: 88px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 30%, #1c2a36, #05080c 70%);
+      border: 1px solid rgba(61, 255, 181, 0.4);
+      box-shadow: 0 0 40px rgba(61, 255, 181, 0.25);
+    }
+    .hub::after {
+      content: "";
+      position: absolute;
+      inset: 18px;
+      border-radius: 50%;
+      border: 1px dashed rgba(126, 182, 255, 0.45);
+    }
+    .ticks {
+      position: absolute;
+      inset: 0;
+      background:
+        repeating-conic-gradient(from 0deg, rgba(61,255,181,0.0) 0 8deg, rgba(61,255,181,0.08) 8deg 9deg);
+      border-radius: 50%;
+      mask: radial-gradient(circle, transparent 42%, #000 43%, #000 70%, transparent 71%);
+      -webkit-mask: radial-gradient(circle, transparent 42%, #000 43%, #000 70%, transparent 71%);
+      opacity: 0.7;
+    }
+    .content {
+      position: relative;
+      z-index: 2;
+      height: 100%;
+      padding: 54px 56px;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
+      max-width: 640px;
+    }
+    .top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 20px;
+      max-width: 560px;
     }
     .eyebrow {
-      font-family: var(--font-sans);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 13px;
+      letter-spacing: 0.14em;
+      color: var(--mint);
+      font-weight: 600;
+    }
+    .url {
+      font-family: "IBM Plex Mono", monospace;
       font-size: 12px;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: #64748b;
-      margin-bottom: 14px;
+      color: var(--muted);
+      border: 1px solid rgba(154, 167, 184, 0.35);
+      padding: 6px 10px;
+      background: rgba(0,0,0,0.25);
     }
     h1 {
-      font-family: var(--font-serif);
-      font-weight: normal;
-      font-size: 34px;
-      line-height: 1.28;
-      text-align: center;
-      max-width: 980px;
-      margin: 0 auto 16px;
-    }
-    .authors {
-      text-align: center;
-      font-size: 15px;
-      line-height: 1.45;
-      margin-bottom: 10px;
-    }
-    .authors .affil {
-      font-style: italic;
-      color: var(--text-dim);
-      font-size: 13px;
-    }
-    .links {
-      text-align: center;
-      font-family: var(--font-mono);
-      font-size: 12px;
-      color: var(--accent-blue);
-      margin-bottom: 14px;
-    }
-    .status {
-      text-align: center;
-      font-family: var(--font-sans);
-      font-size: 12px;
-      color: var(--text-dim);
-      border-top: 1px solid #000;
-      border-bottom: 1px solid #000;
-      display: inline-block;
-      padding: 4px 0;
-      margin: 0 auto 22px;
-      width: fit-content;
-      align-self: center;
-    }
-    .center-col {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-    .stress {
-      background: #f8fafc;
-      border: 1px solid #1e293b;
-      padding: 16px 18px;
-      font-family: var(--font-sans);
-      width: 100%;
-    }
-    .stress-head {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 12px;
-    }
-    .badge {
-      background: #0f172a;
-      color: #fff;
-      padding: 4px 10px;
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.05em;
+      margin-top: 28px;
+      font-size: 92px;
+      line-height: 0.9;
+      letter-spacing: -0.035em;
+      font-weight: 800;
       text-transform: uppercase;
     }
-    .live {
+    h1 span {
+      display: block;
+      color: transparent;
+      -webkit-text-stroke: 2px rgba(244, 247, 251, 0.92);
+    }
+    .tagline {
+      margin-top: 22px;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 16px;
+      line-height: 1.45;
+      color: var(--muted);
+      max-width: 460px;
+    }
+    .chips {
+      display: flex;
+      gap: 10px;
+      margin-top: 28px;
+    }
+    .chip {
+      font-family: "IBM Plex Mono", monospace;
       font-size: 12px;
-      font-weight: 600;
-      color: #059669;
+      letter-spacing: 0.08em;
+      border: 1px solid rgba(244, 247, 251, 0.28);
+      padding: 8px 12px;
+      color: var(--ink);
+      background: rgba(255,255,255,0.03);
+    }
+    .bottom {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 18px;
+      margin-top: 36px;
     }
-    .dot {
-      width: 8px;
-      height: 8px;
-      background: #10b981;
-      border-radius: 50% !important;
-      display: inline-block;
-    }
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
+    .cta {
+      display: inline-flex;
+      align-items: center;
       gap: 10px;
-    }
-    .stat {
-      background: #fff;
-      border: 1px solid #cbd5e1;
-      padding: 12px 8px;
-      text-align: center;
-    }
-    .num {
-      display: block;
-      font-family: var(--font-mono);
-      font-size: 22px;
+      background: var(--mint);
+      color: #04120c;
       font-weight: 800;
-      margin-bottom: 4px;
-    }
-    .green { color: #059669; }
-    .blue { color: #2563eb; }
-    .purple { color: #7c3aed; }
-    .orange { color: #ea580c; }
-    .lbl {
-      display: block;
-      font-size: 11px;
-      font-weight: 700;
-      color: #1e293b;
-    }
-    .sub {
-      display: block;
-      font-size: 10px;
-      color: #64748b;
-      margin-top: 2px;
-    }
-    .hook {
-      margin-top: 14px;
-      font-family: var(--font-serif);
       font-size: 15px;
-      color: #334155;
-      border-top: 1px solid #cbd5e1;
-      padding-top: 10px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      padding: 14px 18px;
+    }
+    .meta {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 12px;
+      color: var(--muted);
       line-height: 1.4;
     }
-    .hook strong { color: #0f172a; }
+    .scan {
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 3px,
+        rgba(255,255,255,0.015) 3px,
+        rgba(255,255,255,0.015) 4px
+      );
+      pointer-events: none;
+      z-index: 3;
+    }
+    .edge {
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 4px;
+      background: linear-gradient(180deg, var(--mint), var(--steel));
+      z-index: 4;
+    }
   </style>
 </head>
 <body>
-  <div class="frame">
-    <div class="paper">
-      <div class="center-col">
-        <div class="eyebrow">Low-Latency Market Data Engine · RingBuffer V6</div>
-        <h1>A Comparative Evaluation of High-Throughput Producer-Consumer Architectures in the Go Runtime</h1>
-        <div class="authors">
-          <strong>Isaac Brendel</strong><br />
-          <span class="affil">Systems Architecture &amp; Quantitative Infrastructure</span>
+  <div class="stage">
+    <div class="edge"></div>
+    <div class="rings" aria-hidden="true">
+      <div class="ticks"></div>
+      <div class="ring"></div>
+      <div class="ring"></div>
+      <div class="ring"></div>
+      <div class="ring"></div>
+      <div class="ring"></div>
+      <div class="arc a"></div>
+      <div class="arc b"></div>
+      <div class="arc c"></div>
+      <div class="hub"></div>
+    </div>
+    <div class="content">
+      <div>
+        <div class="top">
+          <div class="eyebrow">LOCK-FREE · RING BUFFER V6</div>
+          <div class="url">latency-optimizer.vercel.app</div>
         </div>
-        <div class="links">github.com/isaacbrendel/latency_optimizer</div>
-        <div class="status"><strong>Status:</strong> Working Draft / Replication Study · <strong>Date:</strong> July 24, 2026</div>
-      </div>
-      <div class="stress">
-        <div class="stress-head">
-          <span class="badge">Multi-Venue Concurrency &amp; Benchmark Metrics</span>
-          <span class="live"><span class="dot"></span> Live Go Runtime Benchmarks</span>
+        <h1>LATENCY<span>ENGINE</span></h1>
+        <p class="tagline">Microsecond order-book fan-out to thousands of consumers — without GC stalls.</p>
+        <div class="chips">
+          <div class="chip">GO</div>
+          <div class="chip">ATOMIC</div>
+          <div class="chip">HFT</div>
+          <div class="chip">LMAX</div>
         </div>
-        <div class="grid">
-          <div class="stat">
-            <span class="num green">1.03 ns</span>
-            <span class="lbl">FlatBuffers Zero-Copy Wire</span>
-            <span class="sub">0 B/op · 0 Allocations</span>
-          </div>
-          <div class="stat">
-            <span class="num blue">626 µs</span>
-            <span class="lbl">Non-Blocking Eviction Mode</span>
-            <span class="sub">350× Speedup vs V1 Baseline</span>
-          </div>
-          <div class="stat">
-            <span class="num purple">13.2 ms</span>
-            <span class="lbl">100,000 Trade Ingress</span>
-            <span class="sub">500 Concurrent Subscribers</span>
-          </div>
-          <div class="stat">
-            <span class="num orange">65.9 ms</span>
-            <span class="lbl">2,000 Subscriber Scale</span>
-            <span class="sub">Zero Producer Lock Stalls</span>
-          </div>
-        </div>
-        <div class="hook">
-          <strong>611× less heap. Microsecond fan-out.</strong>
-          Lock-free LMAX-style ring buffer streaming order-book updates across thousands of concurrent consumers — without GC stalls.
+        <div class="bottom">
+          <div class="cta">OPEN THE BENCH →</div>
+          <div class="meta">systems × market data<br />isaacbrendel</div>
         </div>
       </div>
     </div>
+    <div class="scan"></div>
   </div>
 </body>
 </html>
