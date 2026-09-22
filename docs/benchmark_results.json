@@ -6,34 +6,54 @@
         "trades": 100,
         "results": {
           "BinaryWireFanout": {
-            "timeNs": 353242,
-            "allocs": 202,
-            "bytesAlloc": 12304
+            "timeNs": 180981,
+            "allocs": 204,
+            "bytesAlloc": 536640
           },
           "RingBufferEviction": {
-            "timeNs": 62372021,
-            "allocs": 410,
-            "bytesAlloc": 60976
+            "timeNs": 57141587,
+            "allocs": 582,
+            "bytesAlloc": 588304
           },
           "RingBufferV6": {
-            "timeNs": 1015245,
-            "allocs": 434,
-            "bytesAlloc": 229344
+            "timeNs": 778071,
+            "allocs": 579,
+            "bytesAlloc": 749408,
+            "p50Ns": 67263,
+            "p90Ns": 82694,
+            "p99Ns": 87630,
+            "p999Ns": 88469,
+            "samples": 100
           },
           "SimpleFanV1": {
-            "timeNs": 3200258,
+            "timeNs": 3523188,
             "allocs": 612,
-            "bytesAlloc": 16619248
+            "bytesAlloc": 17143840,
+            "p50Ns": 1292398,
+            "p90Ns": 2400850,
+            "p99Ns": 2614572,
+            "p999Ns": 2629183,
+            "samples": 10000
           },
           "SimpleFanV2": {
-            "timeNs": 1618423,
-            "allocs": 511,
-            "bytesAlloc": 1906896
+            "timeNs": 3936031,
+            "allocs": 546,
+            "bytesAlloc": 2442240,
+            "p50Ns": 1067295,
+            "p90Ns": 2330452,
+            "p99Ns": 2606638,
+            "p999Ns": 2618972,
+            "samples": 10000
           },
           "SimpleFanV3": {
-            "timeNs": 2424275,
-            "allocs": 490,
-            "bytesAlloc": 5010672
+            "timeNs": 5985910,
+            "allocs": 480,
+            "bytesAlloc": 5526208,
+            "p50Ns": 194141,
+            "p90Ns": 444825,
+            "p99Ns": 481099,
+            "p999Ns": 487026,
+            "samples": 10000
           }
         }
       }
@@ -46,34 +66,54 @@
         "subscribers": 10,
         "results": {
           "BinaryWireFanout": {
-            "timeNs": 14666155,
-            "allocs": 50012,
-            "bytesAlloc": 3604720
+            "timeNs": 14606110,
+            "allocs": 50014,
+            "bytesAlloc": 4129056
           },
           "RingBufferEviction": {
-            "timeNs": 263573119,
-            "allocs": 115,
-            "bytesAlloc": 2036336
+            "timeNs": 128538915,
+            "allocs": 61,
+            "bytesAlloc": 2557920
           },
           "RingBufferV6": {
-            "timeNs": 29082500,
-            "allocs": 48,
-            "bytesAlloc": 2191024
+            "timeNs": 34830580,
+            "allocs": 481,
+            "bytesAlloc": 2729168,
+            "p50Ns": 715669,
+            "p90Ns": 1397458,
+            "p99Ns": 1758555,
+            "p999Ns": 2351036,
+            "samples": 50000
           },
           "SimpleFanV1": {
-            "timeNs": 76984481,
-            "allocs": 47,
-            "bytesAlloc": 1803968
+            "timeNs": 137349825,
+            "allocs": 113,
+            "bytesAlloc": 2337568,
+            "p50Ns": 7947540,
+            "p90Ns": 9209625,
+            "p99Ns": 9578717,
+            "p999Ns": 9756244,
+            "samples": 41248
           },
           "SimpleFanV2": {
-            "timeNs": 48894864,
-            "allocs": 47,
-            "bytesAlloc": 204464
+            "timeNs": 142901855,
+            "allocs": 49,
+            "bytesAlloc": 728880,
+            "p50Ns": 9273485,
+            "p90Ns": 11252291,
+            "p99Ns": 11699373,
+            "p999Ns": 11846337,
+            "samples": 41248
           },
           "SimpleFanV3": {
-            "timeNs": 7432121,
-            "allocs": 47,
-            "bytesAlloc": 542384
+            "timeNs": 90942622,
+            "allocs": 49,
+            "bytesAlloc": 1066800,
+            "p50Ns": 87611844,
+            "p90Ns": 89674538,
+            "p99Ns": 90232545,
+            "p999Ns": 90278703,
+            "samples": 41248
           }
         }
       }

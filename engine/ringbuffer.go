@@ -327,7 +327,20 @@ func (rb *RingBufferV6) GetMinReaderSeq() int64 {
 	return min
 }
 
+func (rb *RingBufferV6) hasGatingReaders() bool {
+	for _, r := range rb.Readers {
+		if r.Blocking {
+			return true
+		}
+	}
+	return false
+}
+
 func (rb *RingBufferV6) waitForGatingCapacity(seq int64) {
+	// No blocking consumers ⇒ lossy overwrite is allowed; never stall the publisher.
+	if !rb.hasGatingReaders() {
+		return
+	}
 	for {
 		cachedMin := atomic.LoadInt64(&rb.CachedMin)
 		if seq-cachedMin < rb.Size {
@@ -448,9 +461,23 @@ func (rb *RingBufferV6) Read(reader *RingBufferReader, targetCount int64, barrie
 	}
 
 	for readSeq < targetCount {
+		// External eviction / test harness may advance the cursor concurrently.
+		if cur := atomic.LoadInt64(&reader.ReadSeq); cur > readSeq {
+			readSeq = cur
+			continue
+		}
+		if readSeq >= targetCount {
+			break
+		}
+
 		limitSeq := limitGetter()
 		if readSeq >= limitSeq {
-			limitSeq = rb.WaitStrategy.WaitFor(readSeq+1, limitGetter)
+			limitSeq = rb.WaitStrategy.WaitFor(readSeq+1, func() int64 {
+				if cur := atomic.LoadInt64(&reader.ReadSeq); cur > readSeq {
+					return cur
+				}
+				return limitGetter()
+			})
 		}
 
 		// Absorb producer-side eviction.
@@ -488,7 +515,7 @@ func (rb *RingBufferV6) Read(reader *RingBufferReader, targetCount int64, barrie
 					w := atomic.LoadInt64(&rb.WriteSeq)
 					if w-readSeq > rb.Size {
 						readSeq = w - rb.Size
-						atomic.StoreInt64(&reader.ReadSeq, readSeq)
+						rb.advanceReader(reader, &readSeq)
 						atomic.AddInt64(&reader.EvictedCount, 1)
 					}
 				}
@@ -497,8 +524,23 @@ func (rb *RingBufferV6) Read(reader *RingBufferReader, targetCount int64, barrie
 			}
 			process(trade)
 			readSeq++
-			atomic.StoreInt64(&reader.ReadSeq, readSeq)
+			rb.advanceReader(reader, &readSeq)
 		}
 		rb.WaitStrategy.Signal()
+	}
+}
+
+// advanceReader publishes the local cursor unless an external fast-forward already
+// moved it ahead (eviction / shutdown). Never clobber a higher ReadSeq.
+func (rb *RingBufferV6) advanceReader(reader *RingBufferReader, readSeq *int64) {
+	for {
+		cur := atomic.LoadInt64(&reader.ReadSeq)
+		if cur > *readSeq {
+			*readSeq = cur
+			return
+		}
+		if atomic.CompareAndSwapInt64(&reader.ReadSeq, cur, *readSeq) {
+			return
+		}
 	}
 }

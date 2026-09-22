@@ -27,6 +27,7 @@ func main() {
 	http.HandleFunc("/api/orderbook", engine.HandleOrderBookAPI)
 	http.HandleFunc("/api/ring-buffer", engine.HandleRingBufferAPI)
 	http.HandleFunc("/api/sentiment", engine.HandleSentimentAPI)
+	http.HandleFunc("/api/feed", engine.HandleFeedAPI)
 	http.HandleFunc("/api/run-experiment", engine.HandleRunExperimentAPI)
 
 	fs := http.FileServer(http.Dir("docs"))

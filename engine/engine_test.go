@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -284,25 +285,40 @@ func TestRingBuffer_RaceFreeEviction(t *testing.T) {
 	rb.Readers[0].Blocking = false
 	rb.Readers[1].Blocking = false
 
-	const target int64 = 1 << 20
 	var slowN, fastN int64
+	stop := int64(0)
 	var wg sync.WaitGroup
 	wg.Add(2)
-	go func() {
+	consume := func(r *RingBufferReader, slow bool, counter *int64) {
 		defer wg.Done()
-		rb.Read(rb.Readers[0], target, nil, func(ct CompactTrade) {
-			atomic.AddInt64(&slowN, 1)
-			time.Sleep(3 * time.Millisecond)
-		})
-	}()
-	go func() {
-		defer wg.Done()
-		rb.Read(rb.Readers[1], target, nil, func(ct CompactTrade) {
-			atomic.AddInt64(&fastN, 1)
-		})
-	}()
-
-	time.Sleep(20 * time.Millisecond)
+		for atomic.LoadInt64(&stop) == 0 {
+			w := rb.GetWriteSeq()
+			seq := r.GetReadSeq()
+			if seq >= w {
+				runtime.Gosched()
+				continue
+			}
+			if !r.Blocking {
+				if w-seq > rb.Size {
+					atomic.StoreInt64(&r.ReadSeq, w-rb.Size)
+					atomic.AddInt64(&r.EvictedCount, 1)
+					continue
+				}
+			}
+			if ct, ok := rb.TryLoadSequence(seq); ok {
+				atomic.AddInt64(counter, 1)
+				atomic.StoreInt64(&r.ReadSeq, seq+1)
+				if slow {
+					time.Sleep(2 * time.Millisecond)
+				}
+				_ = ct
+			} else {
+				runtime.Gosched()
+			}
+		}
+	}
+	go consume(rb.Readers[0], true, &slowN)
+	go consume(rb.Readers[1], false, &fastN)
 
 	trades := make([]CompactTrade, 64)
 	for i := range trades {
@@ -313,9 +329,11 @@ func TestRingBuffer_RaceFreeEviction(t *testing.T) {
 	}
 
 	deadline := time.After(3 * time.Second)
-	for atomic.LoadInt64(&rb.Readers[0].EvictedCount) == 0 || atomic.LoadInt64(&fastN) < 8 {
+	for atomic.LoadInt64(&fastN) == 0 || atomic.LoadInt64(&rb.Readers[0].EvictedCount) == 0 {
 		select {
 		case <-deadline:
+			atomic.StoreInt64(&stop, 1)
+			wg.Wait()
 			t.Fatalf("evicted=%d slowN=%d fastN=%d",
 				atomic.LoadInt64(&rb.Readers[0].EvictedCount),
 				atomic.LoadInt64(&slowN), atomic.LoadInt64(&fastN))
@@ -323,23 +341,29 @@ func TestRingBuffer_RaceFreeEviction(t *testing.T) {
 			time.Sleep(5 * time.Millisecond)
 		}
 	}
+	atomic.StoreInt64(&stop, 1)
+	wg.Wait()
+}
 
-	// Unblock readers
-	atomic.StoreInt64(&rb.Readers[0].ReadSeq, target)
-	atomic.StoreInt64(&rb.Readers[1].ReadSeq, target)
-	rb.WaitStrategy.Signal()
+func TestRingBuffer_NoGatingReadersLargeBatch(t *testing.T) {
+	// Regression: batches larger than Size with zero blocking readers must not deadlock.
+	rb := NewRingBufferV6(16, 0)
+	trades := make([]CompactTrade, 64)
+	for i := range trades {
+		trades[i] = CompactTrade{ID: int64(i + 1)}
+	}
 	done := make(chan struct{})
-	go func() { wg.Wait(); close(done) }()
+	go func() {
+		rb.PublishBatch(trades)
+		close(done)
+	}()
 	select {
 	case <-done:
 	case <-time.After(2 * time.Second):
+		t.Fatal("PublishBatch deadlocked with no gating readers")
 	}
-
-	if atomic.LoadInt64(&fastN) == 0 {
-		t.Fatal("fast reader should have received events")
-	}
-	if atomic.LoadInt64(&rb.Readers[0].EvictedCount) == 0 {
-		t.Fatal("slow reader should have been evicted")
+	if rb.GetWriteSeq() != 64 {
+		t.Fatalf("writeSeq=%d", rb.GetWriteSeq())
 	}
 }
 

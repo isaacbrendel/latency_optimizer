@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -110,11 +111,19 @@ type BotState struct {
 
 var BotStateVal BotState
 
-var initOnce sync.Once
+var (
+	initOnce   sync.Once
+	liveFeed   *L2Feed
+	feedCancel context.CancelFunc
+)
 
 func EnsureInitialized() {
 	initOnce.Do(func() {
 		initEngineState()
+		ctx, cancel := context.WithCancel(context.Background())
+		feedCancel = cancel
+		liveFeed = NewL2Feed("BTC-USD", OrderBookState, EngineState.rb, IndicatorStateVal)
+		go RunLiveL2Feed(ctx, liveFeed)
 		go runMockL2Producer()
 		go runDashboardConsumer()
 		go runQuantConsumer()
@@ -618,6 +627,33 @@ func HandleSentimentAPI(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	_ = json.NewEncoder(w).Encode(IndicatorStateVal.Snapshot())
+}
+
+// HandleFeedAPI returns live venue-feed telemetry (status, gaps, sequences).
+func HandleFeedAPI(w http.ResponseWriter, r *http.Request) {
+	EnsureInitialized()
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	status := FeedStatusFallbackMock.String()
+	var stats L2FeedStats
+	if liveFeed != nil {
+		stats = liveFeed.Stats()
+		status = FeedStatus(stats.Status).String()
+	}
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":       status,
+		"liveEnabled":  LiveFeedEnabled(),
+		"wsURL":        LiveFeedURL(),
+		"productId":    "BTC-USD",
+		"messages":     stats.Messages,
+		"snapshots":    stats.Snapshots,
+		"updates":      stats.Updates,
+		"gaps":         stats.Gaps,
+		"resyncs":      stats.Resyncs,
+		"parseErrors":  stats.ParseErrors,
+		"lastSequence": stats.LastSequence,
+		"wsConnected":  atomic.LoadInt32(&wsConnected),
+	})
 }
 
 type flushWriter struct {

@@ -26,6 +26,14 @@ jobs:
       - name: Go race + tests
         run: go test -race -count=1 ./...
 
+      - name: Coverage floor
+        run: |
+          go test -coverprofile=coverage.out ./engine/
+          go tool cover -func=coverage.out | tee coverage.txt
+          # Fail if engine package coverage drops below 50% (hot path is heavily tested)
+          pct=$(go tool cover -func=coverage.out | awk '/total:/ {print $3}' | tr -d '%')
+          awk -v p="$pct" 'BEGIN { if (p+0 < 50) { printf("coverage %.1f%% < 50%%\n", p); exit 1 } else { printf("coverage OK: %.1f%%\n", p) } }'
+
       - name: Short fuzz (must pass)
         run: |
           go test -run=^$ -fuzz=FuzzRingBufferPublishRead -fuzztime=5s ./engine

@@ -5,6 +5,7 @@
     { "source": "/api/orderbook", "destination": "/api/orderbook/orderbook" },
     { "source": "/api/ring-buffer", "destination": "/api/ring-buffer/ringbuffer" },
     { "source": "/api/sentiment", "destination": "/api/sentiment/sentiment" },
+    { "source": "/api/feed", "destination": "/api/feed/feed" },
     { "source": "/api/run-experiment", "destination": "/api/run-experiment/runexperiment" },
     { "source": "/((?!api/).*)", "destination": "/docs/$1" }
   ]
