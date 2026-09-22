@@ -192,3 +192,25 @@ func TestRingBuffer_ChaosSlowStart(t *testing.T) {
 		}
 	}
 }
+
+func TestLiveFeedEnabled_Defaults(t *testing.T) {
+	t.Setenv("DISABLE_LIVE_FEED", "")
+	t.Setenv("ENABLE_LIVE_FEED", "")
+	t.Setenv("VERCEL", "")
+	t.Setenv("AWS_LAMBDA_FUNCTION_NAME", "")
+	if !LiveFeedEnabled() {
+		t.Fatal("expected live feed ON by default on long-running hosts")
+	}
+	t.Setenv("VERCEL", "1")
+	if LiveFeedEnabled() {
+		t.Fatal("expected live feed OFF on Vercel by default")
+	}
+	t.Setenv("ENABLE_LIVE_FEED", "1")
+	if !LiveFeedEnabled() {
+		t.Fatal("ENABLE_LIVE_FEED=1 should force on even on Vercel")
+	}
+	t.Setenv("DISABLE_LIVE_FEED", "1")
+	if LiveFeedEnabled() {
+		t.Fatal("DISABLE_LIVE_FEED=1 should win")
+	}
+}

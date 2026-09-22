@@ -89,6 +89,7 @@ func TestProof_RingBufferLatencyP99Bound(t *testing.T) {
 }
 
 func TestProof_HTTPFeedAPI(t *testing.T) {
+	t.Setenv("DISABLE_LIVE_FEED", "1")
 	EnsureInitialized()
 	req := httptest.NewRequest(http.MethodGet, "/api/feed", nil)
 	rec := httptest.NewRecorder()
@@ -101,7 +102,7 @@ func TestProof_HTTPFeedAPI(t *testing.T) {
 		t.Fatal(err)
 	}
 	if payload["liveEnabled"] != false {
-		t.Fatalf("expected liveEnabled=false by default, got %v", payload["liveEnabled"])
+		t.Fatalf("expected liveEnabled=false with DISABLE_LIVE_FEED, got %v", payload["liveEnabled"])
 	}
 	if payload["productId"] != "BTC-USD" {
 		t.Fatalf("productId=%v", payload["productId"])

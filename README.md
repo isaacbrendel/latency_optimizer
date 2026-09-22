@@ -58,12 +58,14 @@ go test -run=^$ -fuzz=FuzzFixedPointUSD -fuzztime=10s ./engine
 # Microbenchmarks (include p50/p99 via experiment runner)
 go test -bench=. -benchmem -count=5 ./engine/
 
-# Live server (mock L2 by default)
+# Live server — Exchange L2 WebSocket is ON by default for long-running hosts
 go build -o test_bin .
-./test_bin   # http://localhost:8080
+./test_bin   # http://localhost:8080  (+ live BTC-USD L2)
 
-# Opt into live Exchange WebSocket L2:
-ENABLE_LIVE_FEED=1 ./test_bin
+# Force mock (CI / offline):
+DISABLE_LIVE_FEED=1 ./test_bin
+
+# Serverless (Vercel) stays mock unless you set ENABLE_LIVE_FEED=1
 ```
 
 ### Scorecard (enforced in CI / proof tests)

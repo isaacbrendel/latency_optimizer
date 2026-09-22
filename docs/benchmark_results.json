@@ -6,53 +6,53 @@
         "trades": 100,
         "results": {
           "BinaryWireFanout": {
-            "timeNs": 180981,
-            "allocs": 204,
-            "bytesAlloc": 536640
+            "timeNs": 225760,
+            "allocs": 238,
+            "bytesAlloc": 556288
           },
           "RingBufferEviction": {
-            "timeNs": 57141587,
-            "allocs": 582,
-            "bytesAlloc": 588304
+            "timeNs": 63733134,
+            "allocs": 642,
+            "bytesAlloc": 592432
           },
           "RingBufferV6": {
-            "timeNs": 778071,
-            "allocs": 579,
-            "bytesAlloc": 749408,
-            "p50Ns": 67263,
-            "p90Ns": 82694,
-            "p99Ns": 87630,
-            "p999Ns": 88469,
+            "timeNs": 816467,
+            "allocs": 611,
+            "bytesAlloc": 758032,
+            "p50Ns": 515004,
+            "p90Ns": 531717,
+            "p99Ns": 536471,
+            "p999Ns": 536712,
             "samples": 100
           },
           "SimpleFanV1": {
-            "timeNs": 3523188,
-            "allocs": 612,
-            "bytesAlloc": 17143840,
-            "p50Ns": 1292398,
-            "p90Ns": 2400850,
-            "p99Ns": 2614572,
-            "p999Ns": 2629183,
+            "timeNs": 3964581,
+            "allocs": 613,
+            "bytesAlloc": 17144304,
+            "p50Ns": 1644800,
+            "p90Ns": 2850540,
+            "p99Ns": 3129076,
+            "p999Ns": 3145666,
             "samples": 10000
           },
           "SimpleFanV2": {
-            "timeNs": 3936031,
-            "allocs": 546,
-            "bytesAlloc": 2442240,
-            "p50Ns": 1067295,
-            "p90Ns": 2330452,
-            "p99Ns": 2606638,
-            "p999Ns": 2618972,
+            "timeNs": 2863810,
+            "allocs": 563,
+            "bytesAlloc": 2448096,
+            "p50Ns": 714333,
+            "p90Ns": 1684827,
+            "p99Ns": 1898319,
+            "p999Ns": 1908773,
             "samples": 10000
           },
           "SimpleFanV3": {
-            "timeNs": 5985910,
-            "allocs": 480,
-            "bytesAlloc": 5526208,
-            "p50Ns": 194141,
-            "p90Ns": 444825,
-            "p99Ns": 481099,
-            "p999Ns": 487026,
+            "timeNs": 4774500,
+            "allocs": 436,
+            "bytesAlloc": 5516352,
+            "p50Ns": 310336,
+            "p90Ns": 624227,
+            "p99Ns": 744242,
+            "p999Ns": 749017,
             "samples": 10000
           }
         }
@@ -66,53 +66,53 @@
         "subscribers": 10,
         "results": {
           "BinaryWireFanout": {
-            "timeNs": 14606110,
+            "timeNs": 15535982,
             "allocs": 50014,
             "bytesAlloc": 4129056
           },
           "RingBufferEviction": {
-            "timeNs": 128538915,
-            "allocs": 61,
-            "bytesAlloc": 2557920
+            "timeNs": 150719758,
+            "allocs": 62,
+            "bytesAlloc": 2557936
           },
           "RingBufferV6": {
-            "timeNs": 34830580,
-            "allocs": 481,
-            "bytesAlloc": 2729168,
-            "p50Ns": 715669,
-            "p90Ns": 1397458,
-            "p99Ns": 1758555,
-            "p999Ns": 2351036,
+            "timeNs": 32123418,
+            "allocs": 429,
+            "bytesAlloc": 2727504,
+            "p50Ns": 764379,
+            "p90Ns": 1159408,
+            "p99Ns": 1524179,
+            "p999Ns": 1926040,
             "samples": 50000
           },
           "SimpleFanV1": {
-            "timeNs": 137349825,
-            "allocs": 113,
-            "bytesAlloc": 2337568,
-            "p50Ns": 7947540,
-            "p90Ns": 9209625,
-            "p99Ns": 9578717,
-            "p999Ns": 9756244,
+            "timeNs": 139913067,
+            "allocs": 78,
+            "bytesAlloc": 2333240,
+            "p50Ns": 8786207,
+            "p90Ns": 11528640,
+            "p99Ns": 12374744,
+            "p999Ns": 12632571,
             "samples": 41248
           },
           "SimpleFanV2": {
-            "timeNs": 142901855,
+            "timeNs": 132682782,
             "allocs": 49,
             "bytesAlloc": 728880,
-            "p50Ns": 9273485,
-            "p90Ns": 11252291,
-            "p99Ns": 11699373,
-            "p999Ns": 11846337,
+            "p50Ns": 7691940,
+            "p90Ns": 11131285,
+            "p99Ns": 12761342,
+            "p999Ns": 13014969,
             "samples": 41248
           },
           "SimpleFanV3": {
-            "timeNs": 90942622,
+            "timeNs": 88464917,
             "allocs": 49,
             "bytesAlloc": 1066800,
-            "p50Ns": 87611844,
-            "p90Ns": 89674538,
-            "p99Ns": 90232545,
-            "p999Ns": 90278703,
+            "p50Ns": 86164842,
+            "p90Ns": 87660141,
+            "p99Ns": 87839956,
+            "p999Ns": 87841951,
             "samples": 41248
           }
         }

@@ -20,9 +20,20 @@ func LiveFeedURL() string {
 	return defaultExchangeWS
 }
 
-// LiveFeedEnabled is true only when ENABLE_LIVE_FEED=1 (opt-in; mock is default).
+// LiveFeedEnabled defaults ON for long-running processes.
+// Serverless (Vercel/Lambda) stays on the mock producer unless ENABLE_LIVE_FEED=1.
+// Set DISABLE_LIVE_FEED=1 to force mock everywhere (CI/Jest).
 func LiveFeedEnabled() bool {
-	return os.Getenv("ENABLE_LIVE_FEED") == "1"
+	if os.Getenv("DISABLE_LIVE_FEED") == "1" {
+		return false
+	}
+	if os.Getenv("ENABLE_LIVE_FEED") == "1" {
+		return true
+	}
+	if os.Getenv("VERCEL") == "1" || os.Getenv("AWS_LAMBDA_FUNCTION_NAME") != "" {
+		return false
+	}
+	return true
 }
 
 // RunLiveL2Feed dials the venue WebSocket, applies snapshots/deltas via L2Feed,

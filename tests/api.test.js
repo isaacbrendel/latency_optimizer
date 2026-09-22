@@ -53,7 +53,7 @@ beforeAll(async () => {
   }
 
   serverProcess = spawn(binaryPath, [], {
-    env: { ...process.env, PORT: String(TEST_PORT) },
+    env: { ...process.env, PORT: String(TEST_PORT), DISABLE_LIVE_FEED: '1' },
     stdio: 'ignore'
   });
 
@@ -157,7 +157,7 @@ describe('Latency Optimizer REST & SSE API Integration Suite', () => {
     expect(data).toHaveProperty('productId');
     expect(data).toHaveProperty('gaps');
     expect(data).toHaveProperty('lastSequence');
-    expect(data.liveEnabled).toBe(false); // default: mock producer
+    expect(data.liveEnabled).toBe(false); // Jest forces DISABLE_LIVE_FEED=1
     expect(typeof data.status).toBe('string');
   });
 
