@@ -1,10 +1,10 @@
 # Low-Latency Market Data Engine
 
-Single-producer multi-consumer disruptor ring buffer in Go, with a live L2 book,
+Single-producer multi-consumer disruptor ring buffer in Go, with a live Coinbase BTC-USD L2 book,
 honest microstructure metrics, and a race-detector-clean hot path.
 
 [![Go Version](https://img.shields.io/badge/Go-1.22%2B-00ADD8?style=flat-square&logo=go)](https://golang.org)
-[![CI](https://img.shields.io/badge/CI-race%20%2B%20fuzz-brightgreen?style=flat-square&logo=githubactions)](https://github.com/isaacbrendel/latency_optimizer/actions)
+[![CI](https://img.shields.io/badge/CI-race%20%2B%20fuzz%20%2B%20Jest-brightgreen?style=flat-square&logo=githubactions)](https://github.com/isaacbrendel/latency_optimizer/actions)
 [![License](https://img.shields.io/badge/License-MIT-3B82F6?style=flat-square)](LICENSE)
 
 Inspired by exchange-style producer/consumer fan-out (LMAX Disruptor lineage).
@@ -23,22 +23,33 @@ This repo is an engineering lab — not a licensed matching venue.
 | Wait strategies | Blocking / Adaptive / Yielding / BusySpin |
 | L2 book | Sorted ladders + index maps — **O(log n)** upsert/delete, not full-map rebuild |
 | Metrics | Real **VWAP**, Wilder **RSI(14)**, static **OBI**, Cont–Kukanov–Stoikov **OFI** — not OBI dressed up as RSI |
-| Binary wire | Fixed 38-byte LE frame with fair fan-out decode bench (`BinaryWireFanout`) |
+| Binary wire | Fixed 38-byte LE frame (`flatbuffers_trade.go` — hand-rolled LE, not FlatBuffers IDL) with fair fan-out decode bench (`BinaryWireFanout`) |
+| Live feed | Coinbase Exchange **BTC-USD** only — WebSocket L2 on long-running hosts; REST snapshots on serverless |
 
 ---
 
 ## Architecture
 
 ```
-  Mock / Venue Producer  ──PublishBatch──►  RingBuffer (atomic slots)
-                                                 │
-                    ┌────────────────────────────┼────────────────────────────┐
-                    ▼                            ▼                            ▼
-              UI (lossy)                  Quant / L2                    Bot (barrier)
-           non-blocking                 blocking reader              depends on quant
+  Coinbase L2 (WS or REST) / Mock  ──PublishBatch──►  RingBuffer (atomic slots)
+                                                           │
+           ┌───────────────┬───────────────┬───────────────┼───────────────┐
+           ▼               ▼               ▼               ▼
+        UI (lossy)     Quant / IND      Bot (barrier)    Audit (lossy)
+      non-blocking     blocking         depends on       non-blocking
+                                       quant reader
 ```
 
-Package layout: all core logic lives in `engine/`. `live_server.go` is the HTTP entrypoint.
+### Layout
+
+| Path | Role |
+|---|---|
+| `engine/` | Ring buffer, L2 book, feed (WS + REST), microstructure, HTTP handlers, proof/bench tests |
+| `live_server.go` | Long-running HTTP entrypoint (`/` → `docs/`, `/api/*`) |
+| `api/*/` | Vercel Go serverless wrappers → same `engine` handlers |
+| `docs/` | Live dashboard UI (order book, ring slots, feed telemetry, charts) |
+| `tests/` | Jest API integration suite (starts `server_test_bin` with mock feed) |
+| `.github/workflows/` | CI (race + coverage floor + short fuzz + Jest) and nightly soak |
 
 ---
 
@@ -51,24 +62,33 @@ go test -race -count=1 ./engine/
 # Explicit A++ proof suite
 go test -race -run 'TestProof_' -v ./engine/
 
-# Fuzz (CI fails the job if these fail — no || true)
+# Fuzz — CI uses 5s; Makefile / local default below; nightly uses 30s
 go test -run=^$ -fuzz=FuzzRingBufferPublishRead -fuzztime=10s ./engine
 go test -run=^$ -fuzz=FuzzFixedPointUSD -fuzztime=10s ./engine
 
 # Microbenchmarks (include p50/p99 via experiment runner)
 go test -bench=. -benchmem -count=5 ./engine/
 
-# Live server — real Coinbase BTC-USD L2 is ON by default
-go build -o test_bin .
-./test_bin   # http://localhost:8080
-#   long-running: WebSocket L2 (wss://ws-feed.exchange.coinbase.com)
-#   serverless (Vercel): REST L2 snapshots (https://api.exchange.coinbase.com)
+# Or via Makefile
+make test
+make fuzz
+make bench
 
-# Force mock (CI / offline):
+# Live server — real Coinbase BTC-USD L2 is ON by default
+make run
+#   → http://localhost:8080  (static UI from docs/)
+#   long-running: WebSocket L2 (wss://ws-feed.exchange.coinbase.com) → mode=live
+#   serverless (Vercel): REST L2 snapshots (~1.5s TTL / on each API request) → mode=live_rest
+
+# Force mock (CI / Jest / offline):
 DISABLE_LIVE_FEED=1 ./test_bin
 
 # Force WebSocket even on Vercel (usually not useful — connections are ephemeral):
 ENABLE_LIVE_FEED=1
+
+# Jest API contract tests (needs server_test_bin first)
+go build -o server_test_bin .
+npm ci && npm test
 ```
 
 ### Scorecard (enforced in CI / proof tests)
@@ -76,7 +96,7 @@ ENABLE_LIVE_FEED=1
 | Area | Bar | Status |
 |---|---|---|
 | Race freedom | `go test -race` clean | **A++** |
-| Coverage | engine ≥ 50% (measured ~82%) | **A++** |
+| Coverage | engine ≥ 50% (measured ~80%) | **A++** |
 | Lossy eviction | slow reader evicted; fast progresses | **A++** |
 | Single-writer | concurrent publish panics | **A++** |
 | No-gating batch | batch > Size never deadlocks | **A++** |
@@ -107,15 +127,31 @@ Report results with `benchstat` before claiming ratios. One-shot MemStats deltas
 ```bash
 git clone https://github.com/isaacbrendel/latency_optimizer.git
 cd latency_optimizer
-go build -o test_bin .
-./test_bin
+make run
+# open http://localhost:8080
 ```
 
-API: `/api/orderbook`, `/api/ring-buffer`, `/api/sentiment`, `/api/feed`, `/api/run-experiment` (single-flight; 429 if busy).
+### HTTP API
 
-Live market data (unless `DISABLE_LIVE_FEED=1`):
-- **Long-running host:** Exchange WebSocket L2 (`ENABLE_LIVE_FEED=1` / default) with snapshot → delta + sequence-gap resync.
-- **Serverless (Vercel):** public REST L2 snapshots every ~1.5s / on each API request (`mode=live_rest`) — real BTC-USD prices without a persistent socket.
+| Endpoint | Notes |
+|---|---|
+| `GET /api/orderbook` | Live L2 top-of-book + depth |
+| `GET /api/ring-buffer` | Slot inspection + consumer cursors |
+| `GET /api/sentiment` | VWAP / RSI / OBI / OFI snapshot |
+| `GET /api/feed` | Feed telemetry (`status`, `mode`, gaps, sequences) |
+| `GET /api/run-experiment` | SSE benchmark stream; **single-flight** (429 if busy) |
+
+### Live market data
+
+Unless `DISABLE_LIVE_FEED=1`:
+
+- **Long-running host:** Exchange WebSocket L2 (default on; `ENABLE_LIVE_FEED=1` forces WS even on serverless) with snapshot → delta + sequence-gap resync (`mode=live`).
+- **Serverless (Vercel):** public REST L2 snapshots (top 50), refreshed every ~1.5s and on each API request (`mode=live_rest`) — real BTC-USD prices without a persistent socket.
+- **Overrides:** `EXCHANGE_WS_URL`, `EXCHANGE_REST_URL` for custom endpoints.
+
+Feed status values: `disconnected` · `connecting` · `live` · `live_rest` · `resyncing` · `fallback_mock`.
+
+Deployed on Vercel via `vercel.json` rewrites (`/api/*` → Go functions under `api/`, everything else → `docs/`).
 
 ---
 
