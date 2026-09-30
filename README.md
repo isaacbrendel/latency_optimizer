@@ -1,7 +1,9 @@
 # Low-Latency Market Data Engine
 
-Single-producer multi-consumer disruptor ring buffer in Go, with a live L2 book,
-honest microstructure metrics, and a race-detector-clean hot path.
+Low-latency Go market data engine: a disruptor ring buffer with a live Coinbase
+BTC-USD L2 book and real microstructure metrics (VWAP, RSI, OBI, OFI).
+
+**Live demo:** [latency-optimizer.vercel.app](https://latency-optimizer.vercel.app)
 
 [![Go Version](https://img.shields.io/badge/Go-1.22%2B-00ADD8?style=flat-square&logo=go)](https://golang.org)
 [![CI](https://img.shields.io/badge/CI-race%20%2B%20fuzz-brightgreen?style=flat-square&logo=githubactions)](https://github.com/isaacbrendel/latency_optimizer/actions)
