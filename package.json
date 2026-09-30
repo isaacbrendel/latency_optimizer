@@ -1,7 +1,7 @@
 {
   "name": "latency-optimizer",
   "version": "1.0.0",
-  "description": "High-Throughput Disruptor Ring Buffer and Market Data Engine in Go",
+  "description": "Low-latency Go market data engine: disruptor ring buffer with a live Coinbase L2 book and real microstructure metrics.",
   "main": "docs/app.js",
   "scripts": {
     "test": "node ./node_modules/jest/bin/jest.js --runInBand --detectOpenHandles",
